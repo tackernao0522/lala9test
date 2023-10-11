@@ -393,3 +393,183 @@ class ExampleTest extends TestCase
     }
 }
 ```
+
+## 10. ExampleTestを通して学ぶ、その3
+
+- 書き方の例1  
+
+`tests/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        // 準備
+        $this->makeData();
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    public function test_the_application_returns_a_successful_response2()
+    {
+        // 準備
+        $this->makeData();
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    protected function makeData()
+    {
+    }
+
+    /**
+     * @test
+     */
+    function これはテストです。()
+    {
+        $this->assertTrue(false);
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+    }
+}
+```
+
+- 書き方の例2  
+
+`tests/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        // 準備
+        $this->seed(XXXSeeder::class);
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    public function test_the_application_returns_a_successful_response2()
+    {
+        // 準備
+        $this->seed(XXXSeeder::class);
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    /**
+     * @test
+     */
+    function これはテストです。()
+    {
+        $this->assertTrue(false);
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+    }
+}
+```
+
+- 書き方の例3  
+
+`teste/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    public $user;
+
+    protected function setUp(): void // 下記のメソッドたちが走る前に呼び出される
+    {
+        parent::setUp();
+
+        $this->user = 'hoge';
+    }
+
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        // 準備
+        dump($this->user);
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    public function test_the_application_returns_a_successful_response2()
+    {
+        // 準備
+        dump($this->user);
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+}
+```
+
+`$ php artisan test`を実行してみる  
+
+```:terminal
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Unit\FooTest
+  ✓ example
+"hoge" // tests/Feature/ExampleTest.php:27
+"hoge" // tests/Feature/ExampleTest.php:37
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response
+  ✓ the application returns a successful response2
+
+   PASS  Tests\Feature\FooTest
+  ✓ example
+
+  Tests:  5 passed
+  Time:   0.30s
+```
