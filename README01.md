@@ -292,3 +292,104 @@ Tests: 3, Assertions: 3, Failures: 1.
 
 (例) `$ php artisan make:test FootTest`とするとデフォルトでは`Feature`の方で作成される(試してみる)  
 (例) `$ php artisan make:test FooTest --unit`をすると`Unit`の方に作成される(試してみる)  
+
+## 9. ExampleTestを通して学ぶ、 その3
+
+- <https://developer.mozilla.org/ja/docs/Web/HTTP/Status>  
+
+### ステータスコード
+
+200番台 : 成功  
+300番台 : リダイレクト  
+400番台 : クライアントエラー  
+500番台 : サーバーエラー  
+
+### 覚えておきたいステータスコード
+
+200 OK (ページが問題なく表示された)  
+302 Found (昔は、Moved Temporaily。レイダイレクト)  
+403 Forbidden  
+404 Not Found  
+405 Method Not Allowed (そのURLがPOSTを受け付けていない -> web.phpに問題あり)  
+422 Unprocessable Entity (validationエラー)  
+500 Internal Server Error  
+
+`tests/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        // 準備 (今はまだない)
+
+        // 実行
+        $response = $this->get('/');
+
+        // 検証
+        $response->assertStatus(200);
+    }
+
+    /**
+     * @test
+     */
+    function これはテストです。()
+    {
+        $this->assertTrue(false);
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+    }
+}
+```
+
+`or`  
+
+`tests/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        // 準備
+
+        // 実行 / 検証 (一行でまとめて書ける)
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    /**
+     * @test
+     */
+    function これはテストです。()
+    {
+        $this->assertTrue(false);
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+    }
+}
+```
