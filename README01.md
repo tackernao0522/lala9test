@@ -167,3 +167,128 @@ class ExampleTest extends TestCase
   Tests:  3 passed
   Time:   0.21s
 ```
+
+## 8. ExampleTestを通して学ぶ、 その2
+
+- 古いLaravelの場合のテストコマンド  
+
+- `$ vendor/bin/phpinit`を実行する  
+
+```:terminal
+PHPUnit 9.6.13 by Sebastian Bergmann and contributors.
+
+...
+
+Time: 00:00.235, Memory: 22.00 MB
+
+OK (3 tests, 3 assertions)
+```
+
+### ハンズオン
+
+`tests/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+    }
+
+    /**
+     * @test
+     */
+    function これはテストです。()
+    {
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+    }
+}
+```
+
+- `$ vendor/bin/phpunit`を実行  
+
+```:terminal
+PHPUnit 9.6.13 by Sebastian Bergmann and contributors.
+
+...                                                                 3 / 3 (100%)
+
+Time: 00:00.180, Memory: 22.00 MB
+
+OK (3 tests, 5 assertions)
+```
+
+`tests/Feature/ExampleTest.php`  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+    }
+
+    /**
+     * @test
+     */
+    function これはテストです。()
+    {
+        $this->assertTrue(false); // 編集 ここで失敗するのでここで止まる
+        $this->assertTrue(true);
+        $this->assertTrue(true);
+    }
+}
+```
+
+- `$ vendor/bin/phpunit`を実行  
+
+```:terminal
+PHPUnit 9.6.13 by Sebastian Bergmann and contributors.
+
+..F                                                                 3 / 3 (100%)
+
+Time: 00:00.362, Memory: 22.00 MB
+
+There was 1 failure:
+
+1) Tests\Feature\ExampleTest::これはテストです。
+Failed asserting that false is true.
+
+/Applications/MAMP/htdocs/lara9test/tests/Feature/ExampleTest.php:27
+
+FAILURES!
+Tests: 3, Assertions: 3, Failures: 1.
+```
+
+(例) `$ php artisan make:test FootTest`とするとデフォルトでは`Feature`の方で作成される(試してみる)  
+(例) `$ php artisan make:test FooTest --unit`をすると`Unit`の方に作成される(試してみる)  
