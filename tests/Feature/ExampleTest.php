@@ -24,6 +24,8 @@ class ExampleTest extends TestCase
      */
     function これはテストです。()
     {
+        $this->assertTrue(false);
+        $this->assertTrue(true);
         $this->assertTrue(true);
     }
 }
