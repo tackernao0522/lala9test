@@ -581,3 +581,285 @@ class ExampleTest extends TestCase
 - `$ php artisan test tests/Feature` (フォルダ指定)  
 - `$ php artisan test --filter クラス名やメソッド名`  (部分一致)  
 - `$ php artisan test --testsuite スイート名`  (Feature/Unit)  
+
+## 12. テストを早く読み出す方法の検討、その1
+
+VsCodeプラグイン `Better PHPUnit`をインストールしてみる  
+
+## 15. テストで使うDBについて
+
+- `テストで利用するDBは、ブラウザで確認する際のDBとは必ず分けます。`  
+- `テストファイルでは、DBを利用する際は、トレイト RefreshDatabase; を読み込むこと`  
+
+`RefreshDatabase を使用する場合、DBに応じて以下のように内部処理が分かれます。`  
+
+**MySQLの場合**  
+
+マイグレーションは、最初の一回のみ行われ、後は、テスト毎ごとに rollbackします(トランザクションを張る)。  
+
+**SQLite インメモリの場合**  
+
+テスト毎ごとにマイグレーションを実行します。  
+
+#### 利点や欠点  
+
+MySQLの場合・・・　　
+
+[欠点]  
+
+- 一般的に、SQLiteインメモリより遅いと言われる。  
+- 固定の連番が使えない。(rollbackはするが、autoincrementはリセットされない為)  
+- DBのtruncate() は、使えない。  
+
+[利点]  
+
+- 本番と同様のDBを使う為、DB間による差違が無い。  
+- MySQL 特有の構文を使用しても問題ない。  
+
+スピードに関しては、確かにテスト数やマイグレーションファイル数が多くない時は、SQLite インメモリの方が速いですが、  
+共に多くなる時は、この限りではありません。  
+
+`.envにDBの設定をする`  
+
+### ハンズオン
+
+`phpunit.xml`を編集する  
+
+```xml:phpunit.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory suffix="Test.php">./tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory suffix="Test.php">./tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">./app</directory>
+        </include>
+    </coverage>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_DRIVER" value="array"/>
+
+        <!-- 追加 -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="testing"/>
+        <!-- ここまで -->
+
+        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
+        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+    </php>
+</phpunit>
+```
+
+`.env`を編集及びDATABASE作成 `.env.example`を参考  
+
+`tests/Feature/ExampleTest.php`を編集  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+
+use App\Models\User;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    use RefreshDatabase; // 必ず追加
+
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        User::factory()->create(); // 編集
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    public function test_the_application_returns_a_successful_response2()
+    {
+        User::factory()->create(); // 編集
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+}
+```
+
+- `$ php artisan test --filter ExampleTest`を実行  
+
+
+```:terminal
+ PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response
+  ✓ the application returns a successful response2
+
+  Tests:  3 passed
+  Time:   0.45s
+
+
+groovy@groovy-no-MBP lara9test % php artisan test --filter ExampleTest
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response
+  ✓ the application returns a successful response2
+
+  Tests:  3 passed
+  Time:   0.43s
+```
+
+`tests/Feature/ExampleTest.php`を編集  
+
+```php:ExampleTest.php
+<?php
+
+namespace Tests\Feature;
+
+// use Illuminate\Foundation\Testing\RefreshDatabase;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class ExampleTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /**
+     * A basic test example.
+     *
+     * @return void
+     */
+    public function test_the_application_returns_a_successful_response()
+    {
+        // 編集
+        $user = User::factory()->create();
+
+        dump($user->id); // id が 1
+        // ここまで
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+
+    public function test_the_application_returns_a_successful_response2()
+    {
+        // 編集
+        $user = User::factory()->create();
+
+        dump($user->id); // id が 2
+        // ここまで
+
+        // 実行 / 検証
+        $response = $this->get('/')
+            ->assertStatus(200);
+    }
+}
+```
+
+- `$ php artisan test --filter ExampleTest`を実行  
+
+```:terminal
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+1 // tests/Feature/ExampleTest.php:24 (id　が 1)
+2 // tests/Feature/ExampleTest.php:35 (id が 2)
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response
+  ✓ the application returns a successful response2
+
+  Tests:  3 passed
+  Time:   0.44s
+```
+
+**よって、MySQLでのテストの場合は id が元に戻っていないことがわかる(マイグレーションが最初のテストだけ走っていることになる)**  
+
+#### SqLiteのインメモリでのテストの場合  
+
+`phpunit.xml`を編集  
+
+```xml:phpunit.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory suffix="Test.php">./tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory suffix="Test.php">./tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">./app</directory>
+        </include>
+    </coverage>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <!-- 編集 -->
+        <!-- <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="testing"/> -->
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- ここまで -->
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+    </php>
+</phpunit>
+```
+
+- `$ php artisan test --filter ExampleTest`を実行  
+
+```:terminal
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+1 // tests/Feature/ExampleTest.php:24 (id が 1)
+1 // tests/Feature/ExampleTest.php:35 (id が 1)
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response
+  ✓ the application returns a successful response2
+
+  Tests:  3 passed
+  Time:   0.32s
+  ```
+
+**両方とも id が 1 となっており、テスト毎ごとにマイグレーションが走っていることがわかる**  (多少MySQLより処理が速い)  
