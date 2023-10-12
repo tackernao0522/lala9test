@@ -573,3 +573,11 @@ class ExampleTest extends TestCase
   Tests:  5 passed
   Time:   0.30s
 ```
+
+## 11. テストの実行方法
+
+- `$ php artisan test`  (すべてのテストを実行)  
+- `$ php artisan test tests/Feature/ExampleTest.php` (ファイル指定)  
+- `$ php artisan test tests/Feature` (フォルダ指定)  
+- `$ php artisan test --filter クラス名やメソッド名`  (部分一致)  
+- `$ php artisan test --testsuite スイート名`  (Feature/Unit)  
