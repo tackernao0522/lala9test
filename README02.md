@@ -464,3 +464,168 @@ return [
 
 ];
 ```
+
+## 17. TOPページの表示
+
+- `$ php artisan make:test Http/Controllers/PostListControllerTest`を実行  
+
+- 最初は失敗するテストを書く  
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use Illuminate\Support\Facades\Route;
+```
+
+`tests/Feature/Http/Controllers/PostListControllerTest.php`を編集  
+
+```php:PostListControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostListControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        $this->get('/')
+            ->assertOk();
+    }
+}
+```
+
+`$ php artisan test --filter TOPページで、ブログ一覧が表示される`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\PostListControllerTest
+  ⨯ t o pページで、ブログ一覧が表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\PostListControllerTest > t o pページで、ブログ一覧が表示される
+  Expected response status code [200] but received 404.
+  Failed asserting that 200 is identical to 404.
+
+  at tests/Feature/Http/Controllers/PostListControllerTest.php:17
+     13▕      */
+     14▕     function TOPページで、ブログ一覧が表示される()
+     15▕     {
+     16▕         $this->get('/')
+  ➜  17▕             ->assertOk();
+     18▕     }
+     19▕ }
+     20▕ 
+
+
+  Tests:  1 failed
+  Time:   0.18s
+```
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+// この状態でstausコード200は返すようになるのでテストはpassする
+Route::get('', function () {
+
+});
+```
+
+`$ php artisan test --filter TOPページで、ブログ一覧が表示される`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\PostListControllerTest
+  ✓ t o pページで、ブログ一覧が表示される
+
+  Tests:  1 passed
+  Time:   0.15s
+```
+
+`$ php artisan make:controller PostListController`を実行  
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use App\Http\Controllers\PostListController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('', [PostListController::class, 'index']);
+```
+
+`$ php artisan test --filter TOPページで、ブログ一覧が表示される`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\PostListControllerTest
+  ⨯ t o pページで、ブログ一覧が表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\PostListControllerTest > t o pページで、ブログ一覧が表示される
+  Expected response status code [200] but received 500.
+  Failed asserting that 200 is identical to 500.
+  
+  The following exception occurred during the last request:
+  
+  <!-- 〜省略〜 -->
+  
+  ----------------------------------------------------------------------------------
+  
+  Method App\Http\Controllers\PostListController::index does not exist.
+
+  at tests/Feature/Http/Controllers/PostListControllerTest.php:17
+     13▕      */
+     14▕     function TOPページで、ブログ一覧が表示される()
+     15▕     {
+     16▕         $this->get('/')
+  ➜  17▕             ->assertOk();
+     18▕     }
+     19▕ }
+     20▕ 
+
+
+  Tests:  1 failed
+  Time:   0.43s
+```
+
+`Http/Controllers/PostListController.php`を編集  
+
+```php:PostListController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class PostListController extends Controller
+{
+    // この状態で200を返すのでテストはpassする
+    public function index()
+    {
+        
+    }
+}
+```
+
+`$ php artisan test --filter TOPページで、ブログ一覧が表示される`  を実行  
+
+```:terminal
+ PASS  Tests\Feature\Http\Controllers\PostListControllerTest
+  ✓ t o pページで、ブログ一覧が表示される
+
+  Tests:  1 passed
+  Time:   0.17s
+```
