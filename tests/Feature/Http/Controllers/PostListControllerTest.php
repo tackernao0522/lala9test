@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class PostListControllerTest extends TestCase
 {
-    use RefreshDatabase;
+    // use RefreshDatabase;
 
     /**
      * @test
