@@ -3,6 +3,7 @@
 namespace Tests\Feature\Http\Controllers;
 
 use App\Models\Post;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
@@ -39,5 +40,19 @@ class PostListControllerTest extends TestCase
             ->assertOk()
             ->assertSee('ブログのタイトル1')
             ->assertSee('ブログのタイトル2');
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        // $post = Post::factory()->make(['user_id' => null]);
+        // dump($post);
+        // dump($post->toArray());
+
+        // dump(User::get()->toArray());
+
+        $this->assertTrue(true);
     }
 }
