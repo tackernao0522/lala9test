@@ -527,3 +527,295 @@ class PostListControllerTest extends TestCase
     }
 }
 ```
+
+## 22. 外部キーのfactoryの指定方法と挙動の違い
+
+`database/migrations/create_posts_table.php`を編集  
+
+```php:create_posts_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id'); // 追加
+            $table->string('title');
+            $table->longText('body');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('posts');
+    }
+};
+```
+
+`database/factroies/PostFactory.php`を編集  
+
+```php:PostFactory.php
+<?php
+
+namespace Database\Factories;
+
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Post>
+ */
+class PostFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+        return [
+            'user_id' => User::factory(), // 下記の書き方と同じになる
+
+            // 'user_id' => User::factory()->create()->id, // この書き方はやめた方が良い
+
+            // 'user_id' => function () {
+            //     return User::factory()->create()->id;
+            // },
+
+            'title' => $this->faker->realText(20),
+            'body' => $this->faker->realText(200),
+        ];
+    }
+}
+```
+
+`tests/Feature/Http/Controllers/PostListControllerTest.php`を編集  
+
+```php:PostListControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostListControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->create(['title' => 'ブログのタイトル1']);
+        $post2 = Post::factory()->create(['title' => 'ブログのタイトル2']);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2');
+    }
+
+    // 追加
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        $post = Post::factory()->create();
+        dump($post->toArray());
+
+        dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+    // ここまで
+}
+```
+
+`php artisan test --filter factoryの観察`を実行  
+
+```:terminal
+array:6 [ // tests/Feature/Http/Controllers/PostListControllerTest.php:51
+  "user_id" => 1
+  "title" => "ばかりを見ると思いなが、続つづって、眼。"
+  "body" => "ききょうほんとない天の川の河岸かいにジョバンニもそっちに、まるで億万おくれんなはつくしも、高く高く高く叫さけびましたけれど遠くからボートはき談はなんだんは」鳥捕とりはおったり鳥ども明るくネオン燈とうとこをとったのいちどこまでだったの」「ありまえたりした。ええ、たったといったんだ雑誌ざっしょうてを組んだり、虹にじをしずかです。みんなものの命いの前のくるみのお母さんはっきよりは眼めをひらやパンの大き。"
+  "updated_at" => "2023-10-16T07:23:35.000000Z"
+  "created_at" => "2023-10-16T07:23:35.000000Z"
+  "id" => 1
+]
+array:1 [ // tests/Feature/Http/Controllers/PostListControllerTest.php:53
+  0 => array:6 [
+    "id" => 1
+    "name" => "加納 零"
+    "email" => "yui60@example.org"
+    "email_verified_at" => "2023-10-16T07:23:35.000000Z"
+    "created_at" => "2023-10-16T07:23:35.000000Z"
+    "updated_at" => "2023-10-16T07:23:35.000000Z"
+  ]
+]
+
+   PASS  Tests\Feature\Http\Controllers\PostListControllerTest
+  ✓ factoryの観察
+
+  Tests:  1 passed
+  Time:   0.34s
+```
+
+`tests/Feature/Http/Controllers/PostListControllerTest.php`を編集  
+
+```php:PostListControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostListControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->create(['title' => 'ブログのタイトル1']);
+        $post2 = Post::factory()->create(['title' => 'ブログのタイトル2']);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2');
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        $post = Post::factory()->make(['user_id' => null]); // makeはデータベースに登録されない
+        dump($post);
+        dump($post->toArray()); // 0
+
+        dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+}
+```
+
+`$ php artisan test --filter factoryの観察`を実行  
+
+```:terminal
+App\Models\Post^ {#1289 // tests/Feature/Http/Controllers/PostListControllerTest.php:51
+  #connection: null
+  #table: null
+  #primaryKey: "id"
+  #keyType: "int"
+  +incrementing: true
+  #with: []
+  #withCount: []
+  +preventsLazyLoading: false
+  #perPage: 15
+  +exists: false
+  +wasRecentlyCreated: false
+  #escapeWhenCastingToString: false
+  #attributes: array:3 [
+    "user_id" => null
+    "title" => "そっちを見なが、青い火が燃もえて、と言。"
+    "body" => "どいことは、なにひるまん中がまるい紫むらされてあわてたよ」「ええ、頭と黒いバイブルの人はわれたはがねの板いたちの方へ出してそれはじに鉄道線路せんなこともどこかぼんやり白く見え、第三紀だいいちばんはもっと談はなんだ町の角つの舟ふねの上を、しばっと押おしそうすいぎんがを大きな黒い測候所そっちです。本やノートをおどっかりゅうに、窓からないんで、この傾斜けいべんてんの蛍烏賊ほたるで遠くかのいばりでしたら。"
+  ]
+  #original: []
+  #changes: []
+  #casts: []
+  #classCastCache: []
+  #attributeCastCache: []
+  #dates: []
+  #dateFormat: null
+  #appends: []
+  #dispatchesEvents: []
+  #observables: []
+  #relations: []
+  #touches: []
+  +timestamps: true
+  #hidden: []
+  #visible: []
+  #fillable: []
+  #guarded: array:1 [
+    0 => "*"
+  ]
+}
+array:3 [ // tests/Feature/Http/Controllers/PostListControllerTest.php:52
+  "user_id" => null
+  "title" => "そっちを見なが、青い火が燃もえて、と言。"
+  "body" => "どいことは、なにひるまん中がまるい紫むらされてあわてたよ」「ええ、頭と黒いバイブルの人はわれたはがねの板いたちの方へ出してそれはじに鉄道線路せんなこともどこかぼんやり白く見え、第三紀だいいちばんはもっと談はなんだ町の角つの舟ふねの上を、しばっと押おしそうすいぎんがを大きな黒い測候所そっちです。本やノートをおどっかりゅうに、窓からないんで、この傾斜けいべんてんの蛍烏賊ほたるで遠くかのいばりでしたら。"
+]
+[] // tests/Feature/Http/Controllers/PostListControllerTest.php:54
+
+   PASS  Tests\Feature\Http\Controllers\PostListControllerTest
+  ✓ factoryの観察
+
+  Tests:  1 passed
+  Time:   0.29s
+```
+
+という結果になる。
