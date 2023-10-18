@@ -305,3 +305,421 @@ class DatabaseSeeder extends Seeder
 ```
 
 `$ php artisan migrate:refresh --seed`を実行  
+
+## 25. コメント数を表示する
+
+`$ php artisan make:model Comment -mf`を実行  
+
+`database/migrations/create_comments_table.php`を編集  
+
+```php:create_comments_table.php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+    public function up()
+    {
+        Schema::create('comments', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('post_id');
+            $table->string('name');
+            $table->text('body');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('comments');
+    }
+};
+```
+
+`database/factories/CommentFactory.php`を編集  
+
+```php:CommentFactory.php
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Post;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Comment>
+ */
+class CommentFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+        return [
+            'post_id' => Post::factory(),
+            'name' => $this->faker->name(),
+            'body' => $this->faker->realText(20),
+        ];
+    }
+}
+```
+
+`app/Models/Post.php`を編集  
+
+```php:Post.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    use HasFactory;
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // 追加
+    // public function comments()
+    // {
+    //     return $this->hasMany(Comment::class);
+    // }
+}
+```
+
+`tests/Feature/Models/PostTest.php`を編集  
+
+```php:PostTest.php
+<?php
+
+namespace Tests\Feature\Models;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostTest extends TestCase
+{
+    // use RefreshDatabase;
+
+    /**
+     * @test
+     */
+    function userリレーションを返す()
+    {
+        $post = Post::factory()->create();
+
+        $this->assertInstanceOf(User::class, $post->user); // ユーザークラスのインスタンになっていればOK
+    }
+
+    // 追加
+    /**
+     * @test
+     */
+    function commentsリレーションのテスト()
+    {
+        $post = Post::factory()->create();
+
+        // $post->comments; // eroguentコレクションが返ってくる
+
+        $this->assertInstanceOf(Collection::class, $post->comments);
+    }
+    // ここまで
+}
+```
+
+`$ php artisan test --filter commentsリレーションのテスト`を実行  
+
+```:terminal
+   FAIL  Tests\Feature\Models\PostTest
+  ⨯ commentsリレーションのテスト
+
+  ---
+
+  • Tests\Feature\Models\PostTest > commentsリレーションのテスト
+  Failed asserting that null is an instance of class "Illuminate\Database\Eloquent\Collection".
+
+  at tests/Feature/Models/PostTest.php:35
+     31▕         $post = Post::factory()->create();
+     32▕ 
+     33▕         // $post->comments; // eroguentコレクションが返ってくる
+     34▕ 
+  ➜  35▕         $this->assertInstanceOf(Collection::class, $post->comments);
+     36▕     }
+     37▕ }
+     38▕ 
+
+
+  Tests:  1 failed
+  Time:   0.31s
+```
+
+`app/Models/Post.php`を編集  
+
+```php:Post.php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    use HasFactory;
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // コメントアウトを解除
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+}
+```
+
+`$ php artisan test --filter commentsリレーションのテスト`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Models\PostTest
+  ✓ commentsリレーションのテスト
+
+  Tests:  1 passed
+  Time:   0.30s
+```
+
+`tests/Feature/Http/Controllers/PostListControllerTest.php`を編集  
+
+```php:PostListControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostListControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->hasComments(3)->create(['title' => 'ブログのタイトル1']); // 編集
+        $post2 = Post::factory()->hasComments(5)->create(['title' => 'ブログのタイトル2']); // 編集
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2')
+            ->assertSee($post1->user->name)
+            ->assertSee($post2->user->name)
+            ->assertSee('(3件のコメント)') // 追加
+            ->assertSee('(5件のコメント)'); // 追加
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        // $post = Post::factory()->make(['user_id' => null]);
+        // dump($post);
+        // dump($post->toArray());
+
+        // dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+}
+```
+
+`$ php artisan test --filter TOPページで、ブログ一覧が表示される`を実行  
+
+```:terminal
+   FAIL  Tests\Feature\Http\Controllers\PostListControllerTest
+  ⨯ t o pページで、ブログ一覧が表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\PostListControllerTest > t o pページで、ブログ一覧が表示される
+  Failed asserting that '<!DOCTYPE html>\n
+  <html lang="ja">\n
+  \n
+  <head>\n
+      <meta charset="UTF-8">\n
+      <title>ブログ</title>\n
+      <link type="text/css" rel="stylesheet" href="/css/style.css">\n
+  </head>\n
+  \n
+  <body>\n
+          <h1>ブログ一覧</h1>\n
+  \n
+      <ul>\n
+                      <li>ブログのタイトル1 三宅 太郎</li>\n
+                      <li>ブログのタイトル2 山岸 洋介</li>\n
+              </ul>\n
+  </body>\n
+  \n
+  </html>\n
+  ' contains "(3件のコメント)".
+
+  at tests/Feature/Http/Controllers/PostListControllerTest.php:45
+     41▕             ->assertSee('ブログのタイトル1')
+     42▕             ->assertSee('ブログのタイトル2')
+     43▕             ->assertSee($post1->user->name)
+     44▕             ->assertSee($post2->user->name)
+  ➜  45▕             ->assertSee('(3件のコメント)')
+     46▕             ->assertSee('(5件のコメント)');
+     47▕     }
+     48▕ 
+     49▕     /**
+
+
+  Tests:  1 failed
+  Time:   0.39s
+```
+
+`app/Http/Controllers/PostListController.php`を編集  
+
+```php:PostListController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostListController extends Controller
+{
+    public function index()
+    {
+        $posts = Post::withCount('comments')->get(); // 編集
+
+        return view('index', compact('posts'));
+    }
+}
+```
+
+`resources/views/index.blade.php`を編集  
+
+```php:index.blade.php
+@extends('layouts.index')
+
+@section('content')
+    <h1>ブログ一覧</h1>
+
+    <ul>
+        @foreach ($posts as $post)
+            <li>{{ $post->title }} {{ $post->user->name }}
+                ({{ $post->comments_count }}件のコメント)</li> // 編集
+        @endforeach
+    </ul>
+@endsection
+```
+
+`$ php artisan test --filter TOPページで、ブログ一覧が表示される`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\PostListControllerTest
+  ✓ t o pページで、ブログ一覧が表示される
+
+  Tests:  1 passed
+  Time:   0.34s
+```
+
+ブラウザにアクセスするとエラーになる  
+
+`database/seeders/DatabaseSeeder.php`を編集  
+
+```php:DatabaseSeeder.php
+<?php
+
+namespace Database\Seeders;
+
+// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    /**
+     * Seed the application's database.
+     *
+     * @return void
+     */
+    public function run()
+    {
+        // \App\Models\User::factory(10)->create();
+
+        // \App\Models\User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
+
+        // Post::factory(30)->create();
+
+        // 編集
+        User::factory(15)->create()->each(function ($user) {
+            // ランダムで2〜5件のブログ投稿をする
+            Post::factory(random_int(2, 5))->create(['user_id' => $user])->each(function ($post) {
+                Comment::factory(random_int(2, 3))->create(['post_id' => $post]);
+            });
+        });
+    }
+}
+```
+
+`$ php artisan migrate:refresh --seed`を実行  
+
+トップページにアクセスできる  
