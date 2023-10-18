@@ -256,3 +256,52 @@ class PostListControllerTest extends TestCase
 `$ php artisan migrate:refresh --seed`を実行  
 
 TOPページを開くとエラーが出ないでアクセスできる  
+
+## 24. Userが複数Postを所有する際のDatabaseSeeder  
+
+※ 現在はUserが一人当たり一つのブログ投稿しか所有していない状態になっている  
+
+よってUser一人当たりが複数のブログを所有するようにSeederを作る  
+
+`/database/seeders/DatabaseSeeder.php`を編集  
+
+```php:DatabaseSeeder.php
+<?php
+
+namespace Database\Seeders;
+
+// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    /**
+     * Seed the application's database.
+     *
+     * @return void
+     */
+    public function run()
+    {
+        // \App\Models\User::factory(10)->create();
+
+        // \App\Models\User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
+
+        // Post::factory(30)->create();
+
+        // 編集
+        User::factory(15)->create()->each(function ($user) {
+            // ランダムで2〜5件のブログ投稿をする
+            Post::factory(random_int(2, 5))->create(['user_id' => $user]);
+        });
+        // ここまで
+    }
+}
+```
+
+`$ php artisan migrate:refresh --seed`を実行  
