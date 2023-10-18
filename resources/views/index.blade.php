@@ -5,7 +5,7 @@
 
     <ul>
         @foreach ($posts as $post)
-            <li>{{ $post->title }}</li>
+            <li>{{ $post->title }} {{ $post->user->name }}</li>
         @endforeach
     </ul>
 @endsection
