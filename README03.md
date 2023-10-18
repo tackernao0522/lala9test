@@ -114,7 +114,6 @@ class PostFactory extends Factory
 }
 ```
 
-
 `database/seeders/DatabaseSeeder.php`を編集  
 
 ```php:DatabaseSeeder.php
