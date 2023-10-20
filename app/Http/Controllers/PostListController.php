@@ -14,10 +14,18 @@ class PostListController extends Controller
         //     ->orderBy('comments_count', 'desc')
         //     ->get();
 
+        // $posts = Post::query()
+        //     ->with('user')
+        //     ->where('status', Post::OPEN)
+        //     ->orderByDesc('comments_count')
+        //     ->withCount('comments')
+        //     ->get();
+
         $posts = Post::query()
+            ->onlyOpen()
             ->with('user')
-            ->orderByDesc('comments_count')
             ->withCount('comments')
+            ->orderByDesc('comments_count')
             ->get();
 
         // $posts = Post::select(['posts.*', DB::raw('count(comments.id) as comments_count')])
