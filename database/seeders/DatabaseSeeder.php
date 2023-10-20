@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
         User::factory(15)->create()->each(function ($user) {
             // ランダムで2〜5件のブログ投稿をする
             Post::factory(random_int(2, 5))->create(['user_id' => $user])->each(function ($post) {
-                Comment::factory(random_int(2, 3))->create(['post_id' => $post]);
+                Comment::factory(random_int(1, 5))->create(['post_id' => $post]);
             });
         });
     }

@@ -35,6 +35,7 @@ class PostListControllerTest extends TestCase
 
         $post1 = Post::factory()->hasComments(3)->create(['title' => 'ブログのタイトル1']);
         $post2 = Post::factory()->hasComments(5)->create(['title' => 'ブログのタイトル2']);
+        Post::factory()->hasComments(1)->create();
 
         $this->get('/')
             ->assertOk()
@@ -43,7 +44,12 @@ class PostListControllerTest extends TestCase
             ->assertSee($post1->user->name)
             ->assertSee($post2->user->name)
             ->assertSee('(3件のコメント)')
-            ->assertSee('(5件のコメント)');
+            ->assertSee('(5件のコメント)')
+            ->assertSeeInOrder([
+                '(5件のコメント)',
+                '(3件のコメント)',
+                '(1件のコメント)',
+            ]);
     }
 
     /**
