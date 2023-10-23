@@ -6,7 +6,7 @@ use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class PostListController extends Controller
+class PostController extends Controller
 {
     public function index()
     {
@@ -37,5 +37,10 @@ class PostListController extends Controller
         // dd($posts);
 
         return view('index', compact('posts'));
+    }
+
+    public function show(Post $post)
+    {
+        return view('posts.show', compact('post'));
     }
 }
