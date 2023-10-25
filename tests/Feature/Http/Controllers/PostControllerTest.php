@@ -4,6 +4,7 @@ namespace Tests\Feature\Http\Controllers;
 
 use App\Models\Post;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
@@ -92,6 +93,26 @@ class PostControllerTest extends TestCase
 
         $this->get('posts/' . $post->id)
             ->assertForbidden();
+    }
+
+    /**
+     * @test
+     */
+    function クリスマスの日は、メリークリスマス！と表示される()
+    {
+        $post = Post::factory()->create();
+
+        Carbon::setTestNow('2020-12-24');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertDontSee('メリークリスマス！');
+
+        Carbon::setTestNow('2020-12-25');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee('メリークリスマス！');
     }
 
     /**
