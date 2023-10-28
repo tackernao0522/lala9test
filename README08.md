@@ -561,3 +561,748 @@ class SignupController extends Controller
   Tests:  1 passed
   Time:   0.29s
 ```
+
+## 35. ユーザー登録、 その3、 妥当なデータ
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        $validData = User::factory()->make(); // Userインスタンスが帰ってくる 追加
+        dd($validData); // 追加
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password));
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+App\Models\User^ {#1379 // tests/Feature/Http/Controllers/SignupControllerTest.php:38
+  #connection: null
+  #table: null
+  #primaryKey: "id"
+  #keyType: "int"
+  +incrementing: true
+  #with: []
+  #withCount: []
+  +preventsLazyLoading: false
+  #perPage: 15
+  +exists: false
+  +wasRecentlyCreated: false
+  #escapeWhenCastingToString: false
+  #attributes: array:5 [
+    "name" => "近藤 七夏"
+    "email" => "yosuke67@example.com"
+    "email_verified_at" => "2023-10-28 12:22:58"
+    "password" => "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"
+    "remember_token" => "ZM6AtzV5lB"
+  ]
+  #original: []
+  #changes: []
+  #casts: array:1 [
+    "email_verified_at" => "datetime"
+  ]
+  #classCastCache: []
+  #attributeCastCache: []
+  #dates: []
+  #dateFormat: null
+  #appends: []
+  #dispatchesEvents: []
+  #observables: []
+  #relations: []
+  #touches: []
+  +timestamps: true
+  #hidden: array:2 [
+    0 => "password"
+    1 => "remember_token"
+  ]
+  #visible: []
+  #fillable: array:3 [
+    0 => "name"
+    1 => "email"
+    2 => "password"
+  ]
+  #guarded: array:1 [
+    0 => "*"
+  ]
+  #rememberTokenName: "remember_token"
+  #accessToken: null
+}
+```
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        $validData = User::factory()->make()->toArray(); // 編集 UserFactory.phpでhiddenが設定されている部分が配列化する際に消える
+        dd($validData);
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password));
+    }
+}
+```
+
+- `php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+array:3 [ // tests/Feature/Http/Controllers/SignupControllerTest.php:38
+  "name" => "山本 香織"
+  "email" => "ryosuke70@example.com"
+  "email_verified_at" => "2023-10-28T03:26:27.000000Z"
+]
+```
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        $validData = User::factory()->raw(); // 編集 初めから配列化ができる
+        dd($validData);
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password));
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+array:5 [ // tests/Feature/Http/Controllers/SignupControllerTest.php:38
+  "name" => "渚 花子"
+  "email" => "mwakamatsu@example.com"
+  "email_verified_at" => Illuminate\Support\Carbon @1698463860^ {#1379
+    #endOfTime: false
+    #startOfTime: false
+    #constructedObjectId: "00000000000005630000000000000000"
+    #localMonthsOverflow: null
+    #localYearsOverflow: null
+    #localStrictModeEnabled: null
+    #localHumanDiffOptions: null
+    #localToStringFormat: null
+    #localSerializer: null
+    #localMacros: null
+    #localGenericMacros: null
+    #localFormatFunction: null
+    #localTranslator: null
+    #dumpProperties: array:3 [
+      0 => "date"
+      1 => "timezone_type"
+      2 => "timezone"
+    ]
+    #dumpLocale: null
+    #dumpDateProperties: null
+    date: 2023-10-28 12:31:00.889611 Asia/Tokyo (+09:00)
+  }
+  "password" => "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"
+  "remember_token" => "HxELhMPqkp"
+]
+```
+
+・ __上記の通りhidden設定(Userモデルにてhidden設定されている)されている箇所も出力される__  
+
+しかし、いらない項目もあるので一旦UserFactoryの方を一部コメントアウトしてみる  
+
+`database/factories/UserFactory.php`を編集  
+
+```php:UserFactory.php
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            // 'email_verified_at' => now(), // コメントアウト
+            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
+            // 'remember_token' => Str::random(10), // コメントアウト
+        ];
+    }
+
+    /**
+     * Indicate that the model's email address should be unverified.
+     *
+     * @return static
+     */
+    public function unverified()
+    {
+        return $this->state(fn (array $attributes) => [
+            'email_verified_at' => null,
+        ]);
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+array:3 [ // tests/Feature/Http/Controllers/SignupControllerTest.php:38
+  "name" => "宇野 陽一"
+  "email" => "naoto.tanabe@example.com"
+  "password" => "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"
+]
+```
+
+上記結果はハッシュ化されたパスワードが出力されてしまっている。データ登録する際は素のパスワードが欲しい。  
+ステートの機能を使って上書きしてあげる方法がある。
+
+`database/factories/UserFactory.php`を編集  
+
+```php:UserFactory.php
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            // 'email_verified_at' => now(),
+            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
+            // 'remember_token' => Str::random(10),
+        ];
+    }
+
+    // 追加
+    public function validData()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'password' => 'abcd1234',
+            ];
+        });
+    }
+    // ここまで
+
+    /**
+     * Indicate that the model's email address should be unverified.
+     *
+     * @return static
+     */
+    public function unverified()
+    {
+        return $this->state(fn (array $attributes) => [
+            'email_verified_at' => null,
+        ]);
+    }
+}
+```
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        // $validData = User::factory()->raw();
+        $validData = User::factory()->validData()->raw(); // 編集
+        dd($validData);
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password));
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+array:3 [ // tests/Feature/Http/Controllers/SignupControllerTest.php:39
+  "name" => "田辺 修平"
+  "email" => "shuhei83@example.org"
+  "password" => "hogehoge"
+]
+```
+
+しかし、実際はhiddenされているデータがあるので`UserFactory.php`のコメントアウトした部分を解除してみる  
+
+`database/factories/UserFactory.php`を編集  
+
+```php:UserFactory.php
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'email_verified_at' => now(), // コメントアウト解除
+            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
+            'remember_token' => Str::random(10), // コメントアウト解除
+        ];
+    }
+
+    public function validData()
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'password' => 'hogehoge',
+            ];
+        });
+    }
+
+    /**
+     * Indicate that the model's email address should be unverified.
+     *
+     * @return static
+     */
+    public function unverified()
+    {
+        return $this->state(fn (array $attributes) => [
+            'email_verified_at' => null,
+        ]);
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+array:5 [ // tests/Feature/Http/Controllers/SignupControllerTest.php:39
+  "name" => "杉山 裕美子"
+  "email" => "oyoshimoto@example.com"
+  "email_verified_at" => Illuminate\Support\Carbon @1698465152^ {#1382
+    #endOfTime: false
+    #startOfTime: false
+    #constructedObjectId: "00000000000005660000000000000000"
+    #localMonthsOverflow: null
+    #localYearsOverflow: null
+    #localStrictModeEnabled: null
+    #localHumanDiffOptions: null
+    #localToStringFormat: null
+    #localSerializer: null
+    #localMacros: null
+    #localGenericMacros: null
+    #localFormatFunction: null
+    #localTranslator: null
+    #dumpProperties: array:3 [
+      0 => "date"
+      1 => "timezone_type"
+      2 => "timezone"
+    ]
+    #dumpLocale: null
+    #dumpDateProperties: null
+    date: 2023-10-28 12:52:32.578753 Asia/Tokyo (+09:00)
+  }
+  "password" => "hogehoge"
+  "remember_token" => "Cmu3TfuGHS"
+]
+```
+
+hiddenされているのが再度出力されてしまう。データ登録するにはテストにとって邪魔な項目になる  
+
+`database/factories/UserFactory.php`を編集  
+
+```php:UserFactory.php
+<?php
+
+namespace Database\Factories;
+
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
+
+/**
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ */
+class UserFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     *
+     * @return array<string, mixed>
+     */
+    public function definition()
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'email_verified_at' => now(),
+            'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
+            'remember_token' => Str::random(10),
+        ];
+    }
+
+    // 編集
+    public function validData()
+    {
+        return [
+            'name' => fake()->name(),
+            'email' => fake()->unique()->safeEmail(),
+            'password' => 'hogehoge', // password
+        ];
+    }
+    // ここまで
+
+    /**
+     * Indicate that the model's email address should be unverified.
+     *
+     * @return static
+     */
+    public function unverified()
+    {
+        return $this->state(fn (array $attributes) => [
+            'email_verified_at' => null,
+        ]);
+    }
+}
+```
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        // $validData = User::factory()->raw();
+        $validData = User::factory()->validData(); // 編集
+        dd($validData);
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password));
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+array:3 [ // tests/Feature/Http/Controllers/SignupControllerTest.php:39
+  "name" => "山田 裕美子"
+  "email" => "mikako.ogaki@example.net"
+  "password" => "hogehoge"
+]
+```
+
+上記のようにうまく出力される  
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        // $validData = User::factory()->raw();
+        $validData = User::factory()->validData();
+        // dd($validData); // コメントアウト解除
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password));
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+  PASS  Tests\Feature\Http\Controllers\SignupControllerTest
+  ✓ ユーザー登録できる
+
+  Tests:  1 passed
+  Time:   0.35s
+```
