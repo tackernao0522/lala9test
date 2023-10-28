@@ -316,3 +316,248 @@ class SignupController extends Controller
   Tests:  1 passed
   Time:   0.32s
 ```
+
+※ `SignupConroller.phpの下記の部分の例のように変えるとエラーになる`  
+
+```php:SignupController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+
+class SignupController extends Controller
+{
+    public function index()
+    {
+        return view('signup');
+    }
+
+    public function store(Request $request)
+    {
+        User::create([
+            'name' => '与太郎',
+            'email' => $request->email,
+            'password' => $request->password,
+        ]);
+    }
+}
+```
+
+```:terminal
+   FAIL  Tests\Feature\Http\Controllers\SignupControllerTest
+  ⨯ ユーザー登録できる
+
+  ---
+
+  • Tests\Feature\Http\Controllers\SignupControllerTest > ユーザー登録できる
+  Failed asserting that a row in the table [users] matches the attributes {
+      "name": "太郎",
+      "email": "aaa@bbb.net"
+  }.
+  
+  Found: [
+      {
+          "name": "与太郎",
+          "email": "aaa@bbb.net"
+      }
+  ].
+
+  at tests/Feature/Http/Controllers/SignupControllerTest.php:41
+     37▕             ->assertOk();
+     38▕ 
+     39▕         unset($validData['password']);
+     40▕ 
+  ➜  41▕         $this->assertDatabaseHas('users', $validData);
+     42▕     }
+     43▕ }
+     44▕ 
+
+
+  Tests:  1 failed
+  Time:   0.29s
+```
+
+## 34. ユーザー登録、 その2、パスワード保存  
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData); // なるべくこっちを使用した方が良い
+
+        $user = User::firstWhere($validData); // 追加
+        // $this->assertNotNull($user); // 追加 $this->assertDatabaseHas('users', $validData);を同じ意味になる
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\SignupControllerTest
+  ✓ ユーザー登録できる
+
+  Tests:  1 passed
+  Time:   0.29s
+```
+
+`tests/Feature/Http/Controllers/SignupControllerTest.php`を編集  
+
+```php:SignupControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class SignupControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ユーザー登録画面が開ける()
+    {
+        $this->get('signup')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ユーザー登録できる()
+    {
+        // データ検証
+        // DBに保存
+        // ログインされてからマイページにリダイレクト
+
+        $validData = [
+            'name' => '太郎',
+            'email' => 'aaa@bbb.net',
+            'password' => 'hogehoge',
+        ];
+
+        $this->post('signup', $validData)
+            ->assertOk();
+
+        unset($validData['password']);
+
+        $this->assertDatabaseHas('users', $validData);
+
+        $user = User::firstWhere($validData);
+        // $this->assertNotNull($user);
+
+        $this->assertTrue(Hash::check('hogehoge', $user->password)); // 追加
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\SignupControllerTest
+  ⨯ ユーザー登録できる
+
+  ---
+
+  • Tests\Feature\Http\Controllers\SignupControllerTest > ユーザー登録できる
+  Failed asserting that false is true.
+
+  at tests/Feature/Http/Controllers/SignupControllerTest.php:47
+     43▕ 
+     44▕         $user = User::firstWhere($validData);
+     45▕         // $this->assertNotNull($user);
+     46▕ 
+  ➜  47▕         $this->assertTrue(Hash::check('hogehoge', $user->password));
+     48▕     }
+     49▕ }
+     50▕ 
+
+
+  Tests:  1 failed
+  Time:   0.41s
+```
+
+`app/Http/Controllers/SignupController.php`を編集  
+
+```php:SignupController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+
+class SignupController extends Controller
+{
+    public function index()
+    {
+        return view('signup');
+    }
+
+    public function store(Request $request)
+    {
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password), // 編集
+        ]);
+    }
+}
+```
+
+- `$ php artisan test --filter ユーザー登録できる`を実行  
+
+```:terminal
+
+   PASS  Tests\Feature\Http\Controllers\SignupControllerTest
+  ✓ ユーザー登録できる
+
+  Tests:  1 passed
+  Time:   0.29s
+```
