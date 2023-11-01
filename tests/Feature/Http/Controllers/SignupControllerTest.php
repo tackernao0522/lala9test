@@ -50,4 +50,22 @@ class SignupControllerTest extends TestCase
 
         $this->assertTrue(Hash::check('hogehoge', $user->password));
     }
+
+    /**
+     * @test
+     */
+    function 不正なデータではユーザー登録できない()
+    {
+        // $this->withoutExceptionHandling(); // 古いバージョンの時は記述すると良い
+
+        $url = 'signup';
+
+        // $this->post($url, [])
+        //     ->assertRedirect();
+
+        // $this->post($url, ['name' => ''])->assertSessionHasErrors(['name' => 'nameは必ず指定してください。']);
+        $this->post($url, ['name' => ''])->assertInvalid(['name' => '指定']);
+        $this->post($url, ['name' => str_repeat('あ', 21)])->assertInvalid(['name' => '20文字以下']);
+        $this->post($url, ['name' => str_repeat('あ', 20)])->assertValid('name');
+    }
 }
