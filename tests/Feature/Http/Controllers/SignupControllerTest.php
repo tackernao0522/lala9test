@@ -62,8 +62,9 @@ class SignupControllerTest extends TestCase
 
         User::factory()->create(['email' => 'aaa@bbb.net']);
 
-        // $this->post($url, [])
-        //     ->assertRedirect();
+        // $this->get('signup');
+        $this->from('signup')->post($url, [])
+            ->assertRedirect('signup');
 
         // 注意点
         // (1) カスタムメッセージを設定している時は、そちらが優先されてしまう
