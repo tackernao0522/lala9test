@@ -22,10 +22,14 @@ class SignupController extends Controller
             'password' => ['required', 'min:8'],
         ]);
 
-        User::create([
+        $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        auth()->login($user);
+
+        return redirect('mypage/posts');
     }
 }
