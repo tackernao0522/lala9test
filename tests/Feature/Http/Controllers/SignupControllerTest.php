@@ -39,7 +39,7 @@ class SignupControllerTest extends TestCase
         // dd($validData);
 
         $this->post('signup', $validData)
-            ->assertOk();
+            ->assertRedirect('mypage/posts');
 
         unset($validData['password']);
 
@@ -49,6 +49,8 @@ class SignupControllerTest extends TestCase
         // $this->assertNotNull($user);
 
         $this->assertTrue(Hash::check('hogehoge', $user->password));
+
+        $this->assertAuthenticatedAs($user);
     }
 
     /**
@@ -72,6 +74,8 @@ class SignupControllerTest extends TestCase
 
         app()->setLocale('testing');
 
+        dump(app()->getLocale());
+
         // $this->post($url, ['name' => ''])->assertSessionHasErrors(['name' => 'nameは必ず指定してください。']);
         $this->post($url, ['name' => ''])->assertInvalid(['name' => 'required']);
         $this->post($url, ['name' => str_repeat('あ', 21)])->assertInvalid(['name' => 'max']);
@@ -85,5 +89,15 @@ class SignupControllerTest extends TestCase
         $this->post($url, ['password' => ''])->assertInvalid(['password' => 'required']);
         $this->post($url, ['password' => 'abc1234'])->assertInvalid(['password' => 'min']);
         $this->post($url, ['password' => 'abc12345'])->assertValid(['password']);
+    }
+
+    /**
+     * @test
+     */
+    function hogebar()
+    {
+        dump(app()->getLocale());
+
+        $this->assertTrue(true);
     }
 }
