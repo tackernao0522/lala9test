@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Mypage;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class UserLoginController extends Controller
 {
@@ -14,9 +15,15 @@ class UserLoginController extends Controller
 
     public function login(Request $requst)
     {
-        $requst->validate([
+        $credentials = $requst->validate([
             'email' => ['required', 'email:filter'],
             'password' => ['required'],
         ]);
+
+        if (Auth::attempt($credentials)) {
+            $requst->session()->regenerate();
+
+            return redirect('mypage/posts');
+        }
     }
 }

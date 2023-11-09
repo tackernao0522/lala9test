@@ -825,9 +825,8 @@ class UserLoginControllerTest extends TestCase
     {
         $url = 'mypage/login';
 
-        // コメントアウトする
-        // $this->from($url)->post($url, [])
-        //     ->assertRedirect($url);
+        $this->from($url)->post($url, [])
+            ->assertRedirect($url); // コメントアウト解除
 
         app()->setlocale('testing'); // コメントアウト解除
 
