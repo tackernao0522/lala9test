@@ -54,4 +54,34 @@ class UserLoginControllerTest extends TestCase
 
         $this->assertAuthenticatedAs($user);
     }
+
+    /**
+     * @test
+     */
+    function パスワードを間違えているのでログインできず、適切なエラーメッセージが表示される()
+    {
+        $url = 'mypage/login';
+
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        // $this->from($url)->post('mypage/login', [
+        //     'email' => 'aaa@bbb.net',
+        //     'password' => '11112222',
+        // ])->assertRedirect($url);
+
+        // $this->get($url)
+        //     ->assertOk()
+        //     ->assertSee('メールアドレスかパスワードが間違っています。');
+
+        $this->from($url)->followingRedirects()->post($url, [
+            'email' => 'aaa@bbb.net',
+            'password' => '11112222',
+        ])
+            ->assertOk()
+            ->assertSee('メールアドレスかパスワードが間違っています。')
+            ->assertSee('<h1>ログイン画面</h1>', false);
+    }
 }
