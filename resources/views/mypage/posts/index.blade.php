@@ -5,4 +5,16 @@
     <a href="/mypage/posts/create">ブログ新規登録</a>
 
     <hr>
+
+    <table>
+        <tr>
+            <th>ブログ名</th>
+        </tr>
+
+        @foreach ($posts as $post)
+            <tr>
+                {{ $post->title }}
+            </tr>
+        @endforeach
+    </table>
 @endsection

@@ -287,3 +287,347 @@ return [
 
 ];
 ```
+
+## 50. マイページ、自分のブログのみ一覧表示
+
+`tests/Feature/Http/Controllers/Mypage/UserLoginControllerTest.php`を編集  
+
+```php:UserLoginControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers\Mypage;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostManageControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ゲストはブログを管理できない()
+    {
+        $loginUrl = 'mypage/login';
+
+        // 認証していない場合
+        $this->get('mypage/posts')
+            ->assertRedirect($loginUrl);
+    }
+
+    /**
+     * @test
+     */
+    // 編集
+    function マイページ、ブログ一覧で自分のデータのみ表示される()
+    {
+        $user = $this->login();
+
+        $other = Post::factory()->create(); // 他人のプログ投稿の作成
+        $mypost = Post::factory()->create(['user_id' => $user->id]); // ログインしているユーザーのブログ投稿が作成できる
+
+        $this->get('mypage/posts')
+            ->assertOk()
+            ->assertDontSee($other->title)
+            ->assertSee($mypost->title);
+    }
+    // ここまで
+}
+```
+
+- `$ php artisan test --filter マイページ、ブログ一覧で自分のデータのみ表示される`を実行  
+
+```:console
+   FAIL  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ⨯ マイページ、ブログ一覧で自分のデータのみ表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest > マイページ、ブログ一覧で自分のデータのみ表示される
+  Failed asserting that '<!DOCTYPE html>\n
+  <html lang="ja">\n
+  \n
+  <head>\n
+      <meta charset="UTF-8">\n
+      <title>ブログ</title>\n
+      <link rel="stylesheet" type="text/css" href="/css/style.css" />\n
+  </head>\n
+  \n
+  <body>\n
+      <nav>\n
+          <li><a href="/">TOP（ブログ一覧）</a></li>\n
+  \n
+                      <li><a href="http://localhost/mypage/posts">マイブログ一覧</a></li>\n
+              <li>\n
+                  <form method="post" action="http://localhost/mypage/logout">\n
+                      <input type="hidden" name="_token" value="O9jDTkZZHJEAaGSORuxNGdpHHTQDlxknoNbc36c5"><input type="submit" value="ログアウト">\n
+                  </form>\n
+              </li>\n
+              </nav>\n
+          <h1>マイブログ一覧</h1>\n
+  \n
+      <a href="/mypage/posts/create">ブログ新規登録</a>\n
+  \n
+      <hr>\n
+  </body>\n
+  \n
+  </html>\n
+  ' contains "いったら、少し汽車のずうっとついたりの。".
+
+  at tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php:38
+     34▕ 
+     35▕         $this->get('mypage/posts')
+     36▕             ->assertOk()
+     37▕             ->assertDontSee($other->title)
+  ➜  38▕             ->assertSee($mypost->title);
+     39▕     }
+     40▕ }
+     41▕ 
+
+
+  Tests:  1 failed
+  Time:   0.36s
+```
+
+`app/Http/Controllers/Mypage/PostManageController.php`を編集  
+
+```php:PostManageController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use App\Models\Post;
+use Illuminate\Http\Request;
+
+class PostManageController extends Controller
+{
+    public function index()
+    {
+        $posts = Post::get(); // 追加
+
+        return view('mypage/posts/index', compact('posts')); // 編集
+    }
+}
+```
+
+`resources/views/mypage/posts/index.blade.php`を編集  
+
+```php:index.blade.php
+@extends('layouts.index')
+@section('content')
+    <h1>マイブログ一覧</h1>
+
+    <a href="/mypage/posts/create">ブログ新規登録</a>
+
+    <hr>
+
+    // 追加
+    <table>
+        <tr>
+            <th>ブログ名</th>
+        </tr>
+
+        @foreach ($posts as $post)
+            <tr>
+                {{ $post->title }}
+            </tr>
+        @endforeach
+    </table>
+    // ここまで
+@endsection
+```
+
+- `$ php artisan test --filter マイページ、ブログ一覧で自分のデータのみ表示される`を実行  
+
+```:console
+ FAIL  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ⨯ マイページ、ブログ一覧で自分のデータのみ表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest > マイページ、ブログ一覧で自分のデータのみ表示される
+  Failed asserting that '<!DOCTYPE html>\n
+  <html lang="ja">\n
+  \n
+  <head>\n
+      <meta charset="UTF-8">\n
+      <title>ブログ</title>\n
+      <link rel="stylesheet" type="text/css" href="/css/style.css" />\n
+  </head>\n
+  \n
+  <body>\n
+      <nav>\n
+          <li><a href="/">TOP（ブログ一覧）</a></li>\n
+  \n
+                      <li><a href="http://localhost/mypage/posts">マイブログ一覧</a></li>\n
+              <li>\n
+                  <form method="post" action="http://localhost/mypage/logout">\n
+                      <input type="hidden" name="_token" value="jyOqJSaxEA2zeeayjV4hQIhO8iN2eXODFC8p2cpo"><input type="submit" value="ログアウト">\n
+                  </form>\n
+              </li>\n
+              </nav>\n
+          <h1>マイブログ一覧</h1>\n
+  \n
+      <a href="/mypage/posts/create">ブログ新規登録</a>\n
+  \n
+      <hr>\n
+  \n
+      <table>\n
+          <tr>\n
+              <th>ブログ名</th>\n
+          </tr>\n
+  \n
+                      <tr>\n
+                  ぶぐらい戸口とのためになって光りながら。\n
+              </tr>\n
+                      <tr>\n
+                  むこうとしまい、なんだい」ジョバンニさ。\n
+              </tr>\n
+              </table>\n
+  </body>\n
+  \n
+  </html>\n
+  ' does not contain "ぶぐらい戸口とのためになって光りながら。".
+
+  at tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php:37
+     33▕         $mypost = Post::factory()->create(['user_id' => $user->id]); // ログインしているユーザーのブログ投稿が作成できる
+     34▕ 
+     35▕         $this->get('mypage/posts')
+     36▕             ->assertOk()
+  ➜  37▕             ->assertDontSee($other->title)
+     38▕             ->assertSee($mypost->title);
+     39▕     }
+     40▕ }
+     41▕ 
+
+
+  Tests:  1 failed
+  Time:   0.35s
+```
+
+`app/Http/Controllers/Mypage/PostManageController.php`を編集  
+
+```php:PostManageController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class PostManageController extends Controller
+{
+    public function index()
+    {
+        $posts = Post::where('user_id', Auth::id())->get(); // 編集
+
+        return view('mypage/posts/index', compact('posts'));
+    }
+}
+```
+
+- `$ php artisan test --filter マイページ、ブログ一覧で自分のデータのみ表示される`を編集  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ✓ マイページ、ブログ一覧で自分のデータのみ表示される
+
+  Tests:  1 passed
+  Time:   0.44s
+```
+
+※ リファクタリング
+
+`app/Models/User.php`を編集  
+
+```php:User.php
+<?php
+
+namespace App\Models;
+
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    use HasApiTokens, HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+
+    // 追加
+    public function posts()
+    {
+        return $this->hasMany(Post::class);
+    }
+    // ここまで
+}
+```
+
+`app/Http/Controllers/Mypage/PostManageController.php`を編集  
+
+```php:PostManageController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class PostManageController extends Controller
+{
+    public function index()
+    {
+        $posts = auth()->user()->posts; // 編集
+
+        return view('mypage/posts/index', compact('posts'));
+    }
+}
+```
+
+- `$ php artisan test --filter マイページ、ブログ一覧で自分のデータのみ表示される`を編集  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ✓ マイページ、ブログ一覧で自分のデータのみ表示される
+
+  Tests:  1 passed
+  Time:   0.44s
+```
