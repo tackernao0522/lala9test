@@ -1,3 +1,130 @@
+# Section2
+
+## 49. ブラウザ表示の確認
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use App\Http\Controllers\Mypage\PostManageController;
+use App\Http\Controllers\Mypage\UserLoginController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\SignupController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('', [PostController::class, 'index']);
+Route::get('posts/{post}', [PostController::class, 'show'])
+    ->name('posts.show')
+    ->whereNumber('post'); // 'post'は数値のみに限定という意味
+
+Route::get('signup', [SignupController::class, 'index']);
+Route::post('signup', [SignupController::class, 'store']);
+
+Route::get('mypage/login', [UserLoginController::class, 'index'])->name('login');
+Route::post('mypage/login', [UserLoginController::class, 'login']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('mypage/posts', [PostManageController::class, 'index'])->name('mypage.posts'); // 編集
+    Route::post('mypage/logout', [UserLoginController::class, 'logout'])->name('logout'); // 編集
+});
+```
+
+`resources/views/layouts/index.blade.php`を編集  
+
+```php:index.blade.php
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ブログ</title>
+    <link type="text/css" rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    // 追加
+    <nav>
+        <li><a href="/">TOP（ブログ一覧）</a></li>
+
+        @auth
+            <li><a href="{{ route('maypage.posts') }}">マイブログ一覧</a></li>
+            <li>
+                <form action="{{ route('logout') }}" mthod=POST>
+                    @csrf
+                    <input type="submit" value="ログアウト">
+                </form>
+            </li>
+        @else
+            <li><a href="{{ route('login') }}">ログイン</a></li>
+        @endauth
+    </nav>
+    // ここまで
+    @yield('content')
+</body>
+
+</html>
+```
+
+- ユーザー登録してみる  
+
+`database/seeders/DatabaseSeeder.php`を編集  
+
+```php:DatabaseSeeder.php
+<?php
+
+namespace Database\Seeders;
+
+// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class DatabaseSeeder extends Seeder
+{
+    /**
+     * Seed the application's database.
+     *
+     * @return void
+     */
+    public function run()
+    {
+        // \App\Models\User::factory(10)->create();
+
+        // \App\Models\User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
+
+        // Post::factory(30)->create();
+
+        // 編集
+        [$first] = User::factory(15)->create()->each(function ($user) {
+            // ランダムで2〜5件のブログ投稿をする
+            Post::factory(random_int(2, 5))->random()->create(['user_id' => $user])
+                ->each(function ($post) {
+                    Comment::factory(random_int(1, 5))->create(['post_id' => $post]);
+                });
+        });
+
+        $first->update([
+            'name' => 'takaki',
+            'email' => 'takaki55730317@gmail.com',
+            'password' => Hash::make('password123'),
+        ]);
+        // ここまで
+    }
+}
+```
+
+- `$ php artisan migrate:fresh --seed`を実行  
+
+`lang/ja/validation.php`を編集  
+
+```php:validation.php
 <?php
 
 return [
@@ -154,8 +281,9 @@ return [
     */
 
     'attributes' => [
-        'email' => 'メールアドレス',
-        'password' => 'パスワード',
+        'email' => 'メールアドレス', // 追加
+        'password' => 'パスワード', // 追加
     ],
 
 ];
+```
