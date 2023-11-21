@@ -20,6 +20,7 @@ class PostManageControllerTest extends TestCase
         // 認証していない場合
         $this->get('mypage/posts')
             ->assertRedirect($loginUrl);
+        $this->get('mypage/posts/create')->assertRedirect($loginUrl);
     }
 
     /**
@@ -36,5 +37,16 @@ class PostManageControllerTest extends TestCase
             ->assertOk()
             ->assertDontSee($other->title)
             ->assertSee($mypost->title);
+    }
+
+    /**
+     * @test
+     */
+    function マイページ、ブログの新規登録画面を開ける()
+    {
+        $this->login();
+
+        $this->get('mypage/posts/create')
+            ->assertOk();
     }
 }
