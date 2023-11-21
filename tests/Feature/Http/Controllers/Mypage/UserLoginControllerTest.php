@@ -128,4 +128,20 @@ class UserLoginControllerTest extends TestCase
             $this->vail('例外が発生してしまいましたよ。');
         }
     }
+
+    /**
+     * @test
+     */
+    function ログアウトできる()
+    {
+        $this->login();
+
+        $this->post('mypage/logout')
+            ->assertRedirect('mypage/login');
+
+        $this->get('mypage/login')
+            ->assertSee('ログアウトしました。');
+
+        $this->assertGuest();
+    }
 }
