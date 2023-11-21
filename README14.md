@@ -509,3 +509,553 @@ PHPUnit 9.6.13 by Sebastian Bergmann and contributors.
 
 Time: 00:02.021, Memory: 48.50 MB
 ```
+
+## 48. ログアウト処理
+
+`tests/Feature/Http/Controllers/Mypage/UserLoginControllerTest.php`  
+
+```php:UserLoginControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers\Mypage;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class UserLoginControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ログイン画面を開ける()
+    {
+        $this->get('mypage/login')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ログイン時の入力チェック()
+    {
+        $url = 'mypage/login';
+
+        $this->from($url)->post($url, [])
+            ->assertRedirect($url);
+
+        app()->setlocale('testing');
+
+        $this->post($url, ['email' => ''])->assertInvalid(['email' => 'required']);
+        $this->post($url, ['email' => 'aa@bb@cc'])->assertInvalid(['email' => 'email']);
+        $this->post($url, ['email' => 'aa@ああ.いい'])->assertInvalid(['email' => 'email']);
+        $this->post($url, ['password' => ''])->assertInvalid(['password' => 'required']);
+    }
+
+    /**
+     * @test
+     */
+    function ログインできる()
+    {
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        $this->post('mypage/login', [
+            'email' => 'aaa@bbb.net',
+            'password' => 'abcd1234',
+        ])->assertRedirect('mypage/posts');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    /**
+     * @test
+     */
+    function パスワードを間違えているのでログインできず、適切なエラーメッセージが表示される()
+    {
+        $url = 'mypage/login';
+
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        // $this->from($url)->post('mypage/login', [
+        //     'email' => 'aaa@bbb.net',
+        //     'password' => '11112222',
+        // ])->assertRedirect($url);
+
+        // $this->get($url)
+        //     ->assertOk()
+        //     ->assertSee('メールアドレスかパスワードが間違っています。');
+
+        $this->from($url)->followingRedirects()->post($url, [
+            'email' => 'aaa@bbb.net',
+            'password' => '11112222',
+        ])
+            ->assertOk()
+            ->assertSee('メールアドレスかパスワードが間違っています。')
+            ->assertSee('<h1>ログイン画面</h1>', false);
+    }
+
+    /**
+     * @test
+     */
+    function 認証エラーなのでvalidationExceptionの例外が発生する()
+    {
+        $this->withoutExceptionHandling();
+
+        // $this->expectException(ValidationException::class);
+
+        try {
+            $this->post('mypage/login', [])
+                ->assertRedirect();
+            $this->fail('例外が発生しませんでしたよ。');
+        } catch (ValidationException $e) {
+            $this->assertSame(
+                'emailは必ず指定してください。',
+                $e->errors()['email'][0],
+            );
+        }
+    }
+
+    /**
+     * @test
+     */
+    function 認証OKなのでvalidationExceptionの例外が発生しない()
+    {
+        $this->withoutExceptionHandling();
+
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        try {
+            $this->post('mypage/login', [
+                'email' => 'aaa@bbb.net',
+                'password' => 'abcd1234',
+            ])->assertRedirect();
+        } catch (ValidationException $e) {
+            $this->vail('例外が発生してしまいましたよ。');
+        }
+    }
+
+    // 追加
+    /**
+     * @test
+     */
+    function ログアウトできる()
+    {
+        
+    }
+    // ここまで
+}
+```
+
+`app/Http/Controllers/Mypage/UserLoginController.php`を編集  
+
+```php:UserLoginController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class UserLoginController extends Controller
+{
+    public function index()
+    {
+        return view('mypage.login');
+    }
+
+    public function login(Request $requst)
+    {
+        $credentials = $requst->validate([
+            'email' => ['required', 'email:filter'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($credentials)) {
+            $requst->session()->regenerate();
+
+            return redirect('mypage/posts');
+        }
+
+        return back()->withErrors([
+            'email' => 'メールアドレスかパスワードが間違っています。',
+        ])->withInput();
+    }
+
+    // 追加
+    public function logout(Request $request)
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')
+            ->with('status', 'ログアウトしました。');
+    }
+    // ここまで
+}
+```
+
+`tests/Feature/Http/Controllers/Mypage/UserLoginControllerTest.php`  
+
+```php:UserLoginControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers\Mypage;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
+
+class UserLoginControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ログイン画面を開ける()
+    {
+        $this->get('mypage/login')
+            ->assertOk();
+    }
+
+    /**
+     * @test
+     */
+    function ログイン時の入力チェック()
+    {
+        $url = 'mypage/login';
+
+        $this->from($url)->post($url, [])
+            ->assertRedirect($url);
+
+        app()->setlocale('testing');
+
+        $this->post($url, ['email' => ''])->assertInvalid(['email' => 'required']);
+        $this->post($url, ['email' => 'aa@bb@cc'])->assertInvalid(['email' => 'email']);
+        $this->post($url, ['email' => 'aa@ああ.いい'])->assertInvalid(['email' => 'email']);
+        $this->post($url, ['password' => ''])->assertInvalid(['password' => 'required']);
+    }
+
+    /**
+     * @test
+     */
+    function ログインできる()
+    {
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        $this->post('mypage/login', [
+            'email' => 'aaa@bbb.net',
+            'password' => 'abcd1234',
+        ])->assertRedirect('mypage/posts');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    /**
+     * @test
+     */
+    function パスワードを間違えているのでログインできず、適切なエラーメッセージが表示される()
+    {
+        $url = 'mypage/login';
+
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        // $this->from($url)->post('mypage/login', [
+        //     'email' => 'aaa@bbb.net',
+        //     'password' => '11112222',
+        // ])->assertRedirect($url);
+
+        // $this->get($url)
+        //     ->assertOk()
+        //     ->assertSee('メールアドレスかパスワードが間違っています。');
+
+        $this->from($url)->followingRedirects()->post($url, [
+            'email' => 'aaa@bbb.net',
+            'password' => '11112222',
+        ])
+            ->assertOk()
+            ->assertSee('メールアドレスかパスワードが間違っています。')
+            ->assertSee('<h1>ログイン画面</h1>', false);
+    }
+
+    /**
+     * @test
+     */
+    function 認証エラーなのでvalidationExceptionの例外が発生する()
+    {
+        $this->withoutExceptionHandling();
+
+        // $this->expectException(ValidationException::class);
+
+        try {
+            $this->post('mypage/login', [])
+                ->assertRedirect();
+            $this->fail('例外が発生しませんでしたよ。');
+        } catch (ValidationException $e) {
+            $this->assertSame(
+                'emailは必ず指定してください。',
+                $e->errors()['email'][0],
+            );
+        }
+    }
+
+    /**
+     * @test
+     */
+    function 認証OKなのでvalidationExceptionの例外が発生しない()
+    {
+        $this->withoutExceptionHandling();
+
+        $user = User::factory()->create([
+            'email' => 'aaa@bbb.net',
+            'password' => Hash::make('abcd1234'),
+        ]);
+
+        try {
+            $this->post('mypage/login', [
+                'email' => 'aaa@bbb.net',
+                'password' => 'abcd1234',
+            ])->assertRedirect();
+        } catch (ValidationException $e) {
+            $this->vail('例外が発生してしまいましたよ。');
+        }
+    }
+
+    /**
+     * @test
+     */
+    function ログアウトできる()
+    {
+        // 追加
+        $this->login();
+
+        $this->post('mypage/logout')
+            ->assertRedirect('mypage/login');
+
+        $this->get('mypage/login')
+            ->assertSee('ログアウトしました。');
+
+        $this->assertGuest();
+        // ここまで
+    }
+}
+```
+
+`app/Http/Controllers/Mypage/UserLoginController.php`を編集  
+
+```php:UserLoginController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class UserLoginController extends Controller
+{
+    public function index()
+    {
+        return view('mypage.login');
+    }
+
+    public function login(Request $requst)
+    {
+        $credentials = $requst->validate([
+            'email' => ['required', 'email:filter'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($credentials)) {
+            $requst->session()->regenerate();
+
+            return redirect('mypage/posts');
+        }
+
+        return back()->withErrors([
+            'email' => 'メールアドレスかパスワードが間違っています。',
+        ])->withInput();
+    }
+
+    public function logout(Request $request)
+    {
+        // 一旦コメントアウト
+        // Auth::logout();
+
+        // $request->session()->invalidate();
+
+        // $request->session()->regenerateToken();
+
+        // return redirect()->route('login')
+        //     ->with('status', 'ログアウトしました。');
+    }
+}
+```
+
+- `$ php artisan test --filter ログアウトできる`を実行  
+
+```:console
+   FAIL  Tests\Feature\Http\Controllers\Mypage\UserLoginControllerTest
+  ⨯ ログアウトできる
+
+  ---
+
+  • Tests\Feature\Http\Controllers\Mypage\UserLoginControllerTest > ログアウトできる
+  Expected response status code [201, 301, 302, 303, 307, 308] but received 404.
+  Failed asserting that false is true.
+
+  at tests/Feature/Http/Controllers/Mypage/UserLoginControllerTest.php:140
+    136▕     {
+    137▕         $this->login();
+    138▕ 
+    139▕         $this->post('mypage/logout')
+  ➜ 140▕             ->assertRedirect('mypage/login');
+    141▕ 
+    142▕         $this->get('mypage/login')
+    143▕             ->assertSee('ログアウトしました。');
+    144▕ 
+
+
+  Tests:  1 failed
+  Time:   0.36s
+```
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use App\Http\Controllers\Mypage\PostManageController;
+use App\Http\Controllers\Mypage\UserLoginController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\SignupController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('', [PostController::class, 'index']);
+Route::get('posts/{post}', [PostController::class, 'show'])
+    ->name('posts.show')
+    ->whereNumber('post'); // 'post'は数値のみに限定という意味
+
+Route::get('signup', [SignupController::class, 'index']);
+Route::post('signup', [SignupController::class, 'store']);
+
+Route::get('mypage/login', [UserLoginController::class, 'index'])->name('login');
+Route::post('mypage/login', [UserLoginController::class, 'login']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('mypage/posts', [PostManageController::class, 'index']);
+    Route::post('mypage/logout', [UserLoginController::class, 'logout']); // 追加
+});
+```
+
+- `$ php artisan test --filter ログアウトできる`を実行  
+
+```:console
+   FAIL  Tests\Feature\Http\Controllers\Mypage\UserLoginControllerTest
+  ⨯ ログアウトできる
+
+  ---
+
+  • Tests\Feature\Http\Controllers\Mypage\UserLoginControllerTest > ログアウトできる
+  Expected response status code [201, 301, 302, 303, 307, 308] but received 200.
+  Failed asserting that false is true.
+
+  at tests/Feature/Http/Controllers/Mypage/UserLoginControllerTest.php:140
+    136▕     {
+    137▕         $this->login();
+    138▕ 
+    139▕         $this->post('mypage/logout')
+  ➜ 140▕             ->assertRedirect('mypage/login');
+    141▕ 
+    142▕         $this->get('mypage/login')
+    143▕             ->assertSee('ログアウトしました。');
+    144▕ 
+
+
+  Tests:  1 failed
+  Time:   0.28s
+```
+
+`app/Http/Controllers/Mypage/UserLoginController.php`を編集  
+
+```php:UserLoginController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class UserLoginController extends Controller
+{
+    public function index()
+    {
+        return view('mypage.login');
+    }
+
+    public function login(Request $requst)
+    {
+        $credentials = $requst->validate([
+            'email' => ['required', 'email:filter'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($credentials)) {
+            $requst->session()->regenerate();
+
+            return redirect('mypage/posts');
+        }
+
+        return back()->withErrors([
+            'email' => 'メールアドレスかパスワードが間違っています。',
+        ])->withInput();
+    }
+
+    public function logout(Request $request)
+    {
+        // コメントアウトを解除
+        Auth::logout();
+
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')
+            ->with('status', 'ログアウトしました。');
+    }
+}
+```
+
+- `$ php artisan test --filter ログアウトできる`を実行  
+
+```:console
+   PASS  Tests\Feature\Http\Controllers\Mypage\UserLoginControllerTest
+  ✓ ログアウトできる
+
+  Tests:  1 passed
+  Time:   0.29s
+```
