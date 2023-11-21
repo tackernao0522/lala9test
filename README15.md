@@ -631,3 +631,381 @@ class PostManageController extends Controller
   Tests:  1 passed
   Time:   0.44s
 ```
+
+## 51. ブログの新規登録画面
+
+`tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php`を編集  
+
+```php:PostManageControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers\Mypage;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostManageControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ゲストはブログを管理できない()
+    {
+        $loginUrl = 'mypage/login';
+
+        // 認証していない場合
+        $this->get('mypage/posts')
+            ->assertRedirect($loginUrl);
+    }
+
+    /**
+     * @test
+     */
+    function マイページ、ブログ一覧で自分のデータのみ表示される()
+    {
+        $user = $this->login();
+
+        $other = Post::factory()->create(); // 他人のプログ投稿の作成
+        $mypost = Post::factory()->create(['user_id' => $user->id]); // ログインしているユーザーのブログ投稿が作成できる
+
+        $this->get('mypage/posts')
+            ->assertOk()
+            ->assertDontSee($other->title)
+            ->assertSee($mypost->title);
+    }
+
+    // 追加
+    /**
+     * @test
+     */
+    function マイページ、ブログの新規登録画面を開ける()
+    {
+        $this->get('mypage/posts/create')
+            ->assertOk();
+    }
+    // ここまで
+}
+```
+
+- `$ php artisan test --filter マイページ、ブログの新規登録画面を開ける`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ⨯ マイページ、ブログの新規登録画面を開ける
+
+  ---
+
+  • Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest > マイページ、ブログの新規登録画面を開ける
+  Expected response status code [200] but received 404.
+  Failed asserting that 200 is identical to 404.
+
+  at tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php:47
+     43▕      */
+     44▕     function マイページ、ブログの新規登録画面を開ける()
+     45▕     {
+     46▕         $this->get('mypage/posts/create')
+  ➜  47▕             ->assertOk();
+     48▕     }
+     49▕ }
+     50▕ 
+
+
+  Tests:  1 failed
+  Time:   0.27s
+```
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use App\Http\Controllers\Mypage\PostManageController;
+use App\Http\Controllers\Mypage\UserLoginController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\SignupController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('', [PostController::class, 'index']);
+Route::get('posts/{post}', [PostController::class, 'show'])
+    ->name('posts.show')
+    ->whereNumber('post'); // 'post'は数値のみに限定という意味
+
+Route::get('signup', [SignupController::class, 'index']);
+Route::post('signup', [SignupController::class, 'store']);
+
+Route::get('mypage/login', [UserLoginController::class, 'index'])->name('login');
+Route::post('mypage/login', [UserLoginController::class, 'login']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('mypage/posts', [PostManageController::class, 'index'])->name('mypage.posts');
+    Route::post('mypage/logout', [UserLoginController::class, 'logout'])->name('logout');
+    Route::get('mypage/posts/create', [PostManageController::class, 'create']); // 追加
+});
+```
+
+`tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php`を編集  
+
+```php:PostManageControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers\Mypage;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostManageControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ゲストはブログを管理できない()
+    {
+        $loginUrl = 'mypage/login';
+
+        // 認証していない場合
+        $this->get('mypage/posts')
+            ->assertRedirect($loginUrl);
+    }
+
+    /**
+     * @test
+     */
+    function マイページ、ブログ一覧で自分のデータのみ表示される()
+    {
+        $user = $this->login();
+
+        $other = Post::factory()->create(); // 他人のプログ投稿の作成
+        $mypost = Post::factory()->create(['user_id' => $user->id]); // ログインしているユーザーのブログ投稿が作成できる
+
+        $this->get('mypage/posts')
+            ->assertOk()
+            ->assertDontSee($other->title)
+            ->assertSee($mypost->title);
+    }
+
+    /**
+     * @test
+     */
+    function マイページ、ブログの新規登録画面を開ける()
+    {
+        $this->login(); // 追加
+
+        $this->get('mypage/posts/create')
+            ->assertOk();
+    }
+}
+```
+
+- `$ php artisan test --filter マイページ、ブログの新規登録画面を開ける`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ⨯ マイページ、ブログの新規登録画面を開ける
+
+  ---
+
+  • Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest > マイページ、ブログの新規登録画面を開ける
+  Expected response status code [200] but received 500.
+  Failed asserting that 200 is identical to 500.
+  
+  The following exception occurred during the last request:
+  
+    <!-- 〜省略〜 -->
+  
+  ----------------------------------------------------------------------------------
+  
+  Method App\Http\Controllers\Mypage\PostManageController::create does not exist.
+
+  at tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php:49
+     45▕     {
+     46▕         $this->login();
+     47▕ 
+     48▕         $this->get('mypage/posts/create')
+  ➜  49▕             ->assertOk();
+     50▕     }
+     51▕ }
+     52▕ 
+
+
+  Tests:  1 failed
+  Time:   0.46s
+```
+
+`tests/Feature/Http/Controllers/Mypage/PostManageControllerTest.php`を編集  
+
+```php:PostManageControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers\Mypage;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Tests\TestCase;
+
+class PostManageControllerTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function ゲストはブログを管理できない()
+    {
+        $loginUrl = 'mypage/login';
+
+        // 認証していない場合
+        $this->get('mypage/posts')
+            ->assertRedirect($loginUrl);
+        $this->get('mypage/posts/create')->assertRedirect($loginUrl); // 追加
+    }
+
+    /**
+     * @test
+     */
+    function マイページ、ブログ一覧で自分のデータのみ表示される()
+    {
+        $user = $this->login();
+
+        $other = Post::factory()->create(); // 他人のプログ投稿の作成
+        $mypost = Post::factory()->create(['user_id' => $user->id]); // ログインしているユーザーのブログ投稿が作成できる
+
+        $this->get('mypage/posts')
+            ->assertOk()
+            ->assertDontSee($other->title)
+            ->assertSee($mypost->title);
+    }
+
+    /**
+     * @test
+     */
+    function マイページ、ブログの新規登録画面を開ける()
+    {
+        $this->login();
+
+        $this->get('mypage/posts/create')
+            ->assertOk();
+    }
+}
+```
+
+- `$ php artisan test --filter ゲストはブログを管理できない`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ✓ ゲストはブログを管理できない
+
+  Tests:  1 passed
+  Time:   0.28s
+```
+
+`app/Http/Controllers/Mypage/PostManageController.php`を編集  
+
+```php:PostManageController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class PostManageController extends Controller
+{
+    public function index()
+    {
+        $posts = auth()->user()->posts;
+
+        return view('mypage/posts/index', compact('posts'));
+    }
+
+    // 追加
+    public function create()
+    {
+    }
+    // ここまで
+}
+```
+
+- `$ php artisan test --filter マイページ、ブログの新規登録画面を開ける`を実行  
+
+```:terminal
+  PASS  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ✓ マイページ、ブログの新規登録画面を開ける
+
+  Tests:  1 passed
+  Time:   0.30s
+```
+
+`app/Http/Controllers/Mypage/PostManageController.php`を編集  
+
+```php:PostManageController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class PostManageController extends Controller
+{
+    public function index()
+    {
+        $posts = auth()->user()->posts;
+
+        return view('mypage.posts.index', compact('posts'));
+    }
+
+    public function create()
+    {
+        return view('mypag.posts.create'); // 追加
+    }
+}
+```
+
+- `$ touch resources/views/mypage/posts/create.blade.php`を実行  
+
+`resources/views/mypage/posts/create.blade.php`を編集  
+
+```php:create.blade.php
+@extends('layouts.index')
+
+@section('content')
+    <h1>マイブログ新規登録</h1>
+
+    <form action="" method="POST">
+        @csrf
+
+        @include('inc.error')
+
+        タイトル : <input type="text" name="title" style="width:400px" value="{{ old('title') }}">
+        <br>
+        本文 :
+        <textarea name="body" style="width: 600px; height: 200px;">{{ old('body') }}</textarea>
+        <br>
+        公開する : <label>
+            <input type="checkbox" name="status" value="1" {{ old('status') ? 'checked' : '' }}>
+        </label>
+        <br><br>
+        <input type="submit" value="送信する">
+    </form>
+@endsection
+```
+
+- `$ php artisan test --filter マイページ、ブログの新規登録画面を開ける`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\Mypage\PostManageControllerTest
+  ✓ マイページ、ブログの新規登録画面を開ける
+
+  Tests:  1 passed
+  Time:   0.29s
+```
