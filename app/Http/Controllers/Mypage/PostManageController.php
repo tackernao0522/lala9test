@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Mypage;
 
 use App\Http\Controllers\Controller;
 use App\Models\Post;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -36,5 +37,21 @@ class PostManageController extends Controller
         $post = auth()->user()->posts()->create($data);
 
         return redirect('mypage/posts/edit/' . $post->id);
+    }
+
+    public function edit(Post $post)
+    {
+        // if (auth()->user()->id !== $post->user_id) {
+        //     abort(403);
+        // }
+
+        // 別の書き方
+        if (auth()->user()->isNot($post->user)) {
+            abort(403);
+        }
+
+        $data = old() ?: $post;
+
+        return view('mypage.posts.edit', compact('post', 'data'));
     }
 }
