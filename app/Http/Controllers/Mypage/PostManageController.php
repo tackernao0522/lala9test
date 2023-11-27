@@ -23,6 +23,12 @@ class PostManageController extends Controller
 
     public function store(Request $request)
     {
+        $data = $request->validate([
+            'title' => ['required', 'max:255'],
+            'body' => ['required'],
+            'status' => ['nullable', 'boolean'] // あってもなくても良い
+        ]);
+
         $data = $request->only('title', 'body');
 
         $data['status'] = $request->boolean('status');
