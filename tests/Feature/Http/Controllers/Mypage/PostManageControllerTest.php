@@ -20,7 +20,7 @@ class PostManageControllerTest extends TestCase
         // 認証していない場合
         $this->get('mypage/posts')
             ->assertRedirect($loginUrl);
-        $this->get('mypage/posts/create')->assertRedirect($loginUrl);
+        $this->get('mypage/posts/create', [])->assertRedirect($loginUrl);
     }
 
     /**
@@ -55,7 +55,7 @@ class PostManageControllerTest extends TestCase
      */
     function マイページ、ブログを新規登録できる、公開の場合()
     {
-        $this->withoutExceptionHandling();
+        // $this->withoutExceptionHandling();
         [$taro, $me, $jiro] = User::factory(3)->create();
 
         $this->login($me);
@@ -83,6 +83,30 @@ class PostManageControllerTest extends TestCase
      */
     function マイページ、ブログを新規登録できる、非公開の場合()
     {
+        // $this->markTestIncomplete(); // テスト作成途中であることを示す。 incempletedと表示される
+
+        [$taro, $me, $jiro] = User::factory(3)->create();
+
+        $this->login($me);
+
+        $validData = [
+            'title' => '私のブログタイトル',
+            'body' => '私のブログ本文',
+            // 'status' => '1',
+        ];
+
+        $this->post('mypage/posts/create', $validData);
+
+        $this->assertDatabaseHas(
+            'posts',
+            array_merge(
+                $validData,
+                [
+                    'user_id' => $me->id,
+                    'status' => 0,
+                ]
+            )
+        );
     }
 
     /**
