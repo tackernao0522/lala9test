@@ -41,14 +41,7 @@ class PostManageController extends Controller
 
     public function edit(Post $post)
     {
-        // if (auth()->user()->id !== $post->user_id) {
-        //     abort(403);
-        // }
-
-        // 別の書き方
-        if (auth()->user()->isNot($post->user)) {
-            abort(403);
-        }
+        $this->authorize('manage-post', $post);
 
         $data = old() ?: $post;
 
@@ -58,6 +51,7 @@ class PostManageController extends Controller
     public function update(Request $request, Post $post)
     {
         // 所有チェック
+        $this->authorize('manage-post', $post);
 
         $data = $request->validate([
             'title' => ['required', 'max:255'],
