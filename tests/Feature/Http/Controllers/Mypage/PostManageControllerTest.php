@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Http\Controllers\Mypage;
 
+use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +25,7 @@ class PostManageControllerTest extends TestCase
         $this->post('mypage/posts/create', [])->assertRedirect($loginUrl);
         $this->get('mypage/posts/edit/1')->assertRedirect($loginUrl);
         $this->post('mypage/posts/edit/1', [])->assertRedirect($loginUrl);
+        $this->delete('mypage/posts/delete/1')->assertRedirect($loginUrl);
     }
 
     /**
@@ -219,6 +221,30 @@ class PostManageControllerTest extends TestCase
             ->assertForbidden();
 
         $this->assertSame('元のブログタイトル', $post->fresh()->title);
+    }
+
+    /**
+     * @test
+     */
+    function 自分のブログは削除できる、且つ付随するコメントも削除される()
+    {
+        $post = Post::factory()->create();
+
+        $myPostComment = Comment::factory()->create(['post_id' => $post->id]);
+        $otherPostComment = Comment::factory()->create();
+
+        $this->login($post->user);
+
+        $this->delete('mypage/posts/delete/' . $post->id)
+            ->assertRedirect('mypage/posts');
+
+        // assertDeletedは、Ver.9で削除(Delete)された。
+        // Ver.8.6.1〜以降は、assertModelMissing()を使いましょう。
+        // ブログの削除の確認
+        $this->assertModelMissing($post);
+
+        $this->assertModelMissing($myPostComment);
+        $this->assertModelExists($otherPostComment);
     }
 
     /**
