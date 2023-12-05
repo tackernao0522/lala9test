@@ -70,8 +70,11 @@ class PostManageController extends Controller
 
     public function destroy(Post $post)
     {
+        // 所有チェック
+        $this->authorize('manage-post', $post);
+
         $post->delete(); // 付随するコメントはDBの制約を使って削除する
 
-        return redirect('mypage/posts');
+        return redirect(route('mypage.posts'));
     }
 }
