@@ -12,6 +12,7 @@
 
 
     <h1>{{ $post->title }}</h1>
+    <h5>{{ $random }}</h5>
     <div>{!! nl2br(e($post->body)) !!}</div>
 
     <p>書き手: {{ $post->user->name }}</p>
