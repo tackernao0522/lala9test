@@ -161,15 +161,25 @@ class PostControllerTest extends TestCase
         //     ->with(10)
         //     ->andReturn('HELLOWORLD');
 
-        $this->instance(
-            StrRandom::class,
-            Mockery::mock(StrRandom::class, function (MockInterface $mock) {
-                $mock->shouldReceive('get')
-                    ->once()
-                    ->with(10)
-                    ->andReturn('HELLOWORLD');
-            })
-        );
+        // $this->instance(
+        //     StrRandom::class,
+        //     Mockery::mock(StrRandom::class, function (MockInterface $mock) {
+        //         $mock->shouldReceive('get')
+        //             ->once()
+        //             ->with(10)
+        //             ->andReturn('HELLOWORLD');
+        //     })
+        // );
+
+        // $mock = Mockery::mock(StrRandom::class);
+
+        // $mock->shouldReceive('get')->once()->with(10)->andReturn('HELLOWORLD');
+
+        // $this->instance(StrRandom::class, $mock);
+
+        $mock = $this->mock(StrRandom::class, function (MockInterface $mock) {
+            $mock->shouldReceive('get')->once()->with(10)->andReturn('HELLOWORLD');
+        });
 
         $post = Post::factory()->create();
 
