@@ -658,3 +658,975 @@ Time: 00:02.415, Memory: 48.50 MB
 
 OK (33 tests, 133 assertions)
 ```
+
+## 60. withoutMiddlewareの注意点
+
+`app/Http/Controllers/Mypage/PostManageController.php`を編集  
+
+```php:PostManageController.php
+<?php
+
+namespace App\Http\Controllers\Mypage;
+
+use App\Http\Controllers\Controller;
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class PostManageController extends Controller
+{
+    public function index()
+    {
+        $posts = auth()->user()->posts;
+
+        return view('mypage.posts.index', compact('posts'));
+    }
+
+    public function create()
+    {
+        return view('mypage.posts.create');
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'title' => ['required', 'max:255'],
+            'body' => ['required'],
+            'status' => ['nullable', 'boolean'] // あってもなくても良い
+        ]);
+
+        $data = $request->only('title', 'body');
+
+        $data['status'] = $request->boolean('status');
+
+        $post = auth()->user()->posts()->create($data);
+
+        return redirect('mypage/posts/edit/' . $post->id)
+            ->with('status', 'ブログを登録しました'); // 編集
+    }
+
+    public function edit(Post $post)
+    {
+        $this->authorize('manage-post', $post);
+
+        $data = old() ?: $post;
+
+        return view('mypage.posts.edit', compact('post', 'data'));
+    }
+
+    public function update(Request $request, Post $post)
+    {
+        // 所有チェック
+        $this->authorize('manage-post', $post);
+
+        $data = $request->validate([
+            'title' => ['required', 'max:255'],
+            'body' => ['required'],
+            'status' => ['nullable', 'boolean'],
+        ]);
+
+        $data['status'] = $request->boolean('status');
+
+        $post->update($data);
+
+        return redirect(route('mypage.posts.edit', $post))
+            ->with('status', 'ブログを更新しました');
+    }
+
+    public function destroy(Post $post)
+    {
+        // 所有チェック
+        $this->authorize('manage-post', $post);
+
+        $post->delete(); // 付随するコメントはDBの制約を使って削除する
+
+        return redirect(route('mypage.posts'));
+    }
+}
+```
+
+- `$ php artisan make:middleware PostShowLimit`を実行  
+
+`app/Http/Middleware/PostShowLimit.php`を編集  
+
+```php:PostShowLimit.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class PostShowLimit
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     */
+    public function handle(Request $request, Closure $next)
+    {
+        // 追加
+        if (!in_array($request->ip(), ['192.168.255.255'], true)) {
+            abort(403, 'Your IP is not valid.');
+        }
+        // ここまで
+
+        return $next($request);
+    }
+}
+```
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use App\Http\Controllers\Mypage\PostManageController;
+use App\Http\Controllers\Mypage\UserLoginController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\SignupController;
+use App\Http\Middleware\PostShowLimit;
+use Illuminate\Support\Facades\Route;
+
+Route::get('', [PostController::class, 'index']);
+// 編集
+Route::get('posts/{post}', [PostController::class, 'show'])
+    ->name('posts.show')
+    ->whereNumber('post')
+    ->middleware(PostShowLimit::class); // 'post'は数値のみに限定という意味
+// ここまで
+
+Route::get('signup', [SignupController::class, 'index']);
+Route::post('signup', [SignupController::class, 'store']);
+
+Route::get('mypage/login', [UserLoginController::class, 'index'])->name('login');
+Route::post('mypage/login', [UserLoginController::class, 'login']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('mypage/posts', [PostManageController::class, 'index'])->name('mypage.posts');
+    Route::post('mypage/logout', [UserLoginController::class, 'logout'])->name('logout');
+    Route::get('mypage/posts/create', [PostManageController::class, 'create']);
+    Route::post('mypage/posts/create', [PostManageController::class, 'store']);
+    Route::get('mypage/posts/edit/{post}', [PostManageController::class, 'edit'])->name('mypage.posts.edit');
+    Route::post('mypage/posts/edit/{post}', [PostManageController::class, 'update']);
+    Route::delete('mypage/posts/delete/{post}', [PostManageController::class, 'destroy'])->name('mypage.posts.delete');
+});
+```
+
+- `$ php artisan test --filter ブログの詳細画面が表示でき、コメントが古い順に表示される`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\PostControllerTest
+  ⨯ ブログの詳細画面が表示でき、コメントが古い順に表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\PostControllerTest > ブログの詳細画面が表示でき、コメントが古い順に表示される
+  Expected response status code [200] but received 403.
+  Failed asserting that 200 is identical to 403.
+
+  at tests/Feature/Http/Controllers/PostControllerTest.php:89
+     85▕             ['created_at' => now()->sub('1 days'),'name' => 'コメント三郎', 'post_id' => $post->id,],
+     86▕         ]);
+     87▕ 
+     88▕         $this->get('posts/' . $post->id)
+  ➜  89▕             ->assertOk()
+     90▕             ->assertSee($post->title)
+     91▕             ->assertSee($post->user->name)
+     92▕             ->assertSeeInOrder(
+     93▕                 [
+
+
+  Tests:  1 failed
+  Time:   0.48s
+```
+
+`tests/Feature/Http/Controller/PostControllerTest.php`を編集  
+
+```php:PostControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
+use Tests\TestCase;
+
+class PostControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+    // use WithoutMiddleware;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->hasComments(3)->create(['title' => 'ブログのタイトル1']);
+        $post2 = Post::factory()->hasComments(5)->create(['title' => 'ブログのタイトル2']);
+        Post::factory()->hasComments(1)->create();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2')
+            ->assertSee($post1->user->name)
+            ->assertSee($post2->user->name)
+            ->assertSee('(3件のコメント)')
+            ->assertSee('(5件のコメント)')
+            ->assertSeeInOrder([
+                '(5件のコメント)',
+                '(3件のコメント)',
+                '(1件のコメント)',
+            ]);
+    }
+
+    /**
+     * @test
+     */
+    function ブログの一覧で、非公開のブログは表示されない()
+    {
+        $post1 = Post::factory()->closed()->create([
+            'title' => 'これは非公開のブログです',
+        ]);
+
+        $post2 = Post::factory()->create([
+            'title' => 'これは公開済みのブログです',
+        ]); // 公開されているデータ
+
+        $this->get('/')
+            ->assertDontSee('これは非公開のブログです')
+            ->assertSee('これは公開済みのブログです');
+    }
+
+    /**
+     * @test
+     */
+    function ブログの詳細画面が表示でき、コメントが古い順に表示される()
+    {
+        $this->withoutMiddleware(); // 追加
+
+        $post = Post::factory()->create();
+
+        [$comment1, $comment2, $comment3] = Comment::factory()->createMany([
+            ['created_at' => now()->sub('2 days'), 'name' => 'コメント太郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('3 days'), 'name' => 'コメント次郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('1 days'), 'name' => 'コメント三郎', 'post_id' => $post->id,],
+        ]);
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee($post->title)
+            ->assertSee($post->user->name)
+            ->assertSeeInOrder(
+                [
+                    'コメント次郎',
+                    'コメント太郎',
+                    'コメント三郎'
+                ]
+            );
+    }
+
+    /**
+     * @test
+     */
+    function ブログで非公開のものは、詳細画面は表示できない()
+    {
+        $post = Post::factory()->closed()->create(); // 非公開のテストデータ
+
+        $this->get('posts/' . $post->id)
+            ->assertForbidden();
+    }
+
+    /**
+     * @test
+     */
+    function クリスマスの日は、メリークリスマス！と表示される()
+    {
+        $post = Post::factory()->create();
+
+        Carbon::setTestNow('2020-12-24');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertDontSee('メリークリスマス！');
+
+        Carbon::setTestNow('2020-12-25');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee('メリークリスマス！');
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        // $post = Post::factory()->make(['user_id' => null]);
+        // dump($post);
+        // dump($post->toArray());
+
+        // dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+}
+```
+
+- `$ php artisan test --filter ブログの詳細画面が表示でき、コメントが古い順に表示される`を実行  
+
+```:terminal
+ FAIL  Tests\Feature\Http\Controllers\PostControllerTest
+  ⨯ ブログの詳細画面が表示でき、コメントが古い順に表示される
+
+  ---
+
+  • Tests\Feature\Http\Controllers\PostControllerTest > ブログの詳細画面が表示でき、コメントが古い順に表示される
+  Expected response status code [200] but received 403.
+  Failed asserting that 200 is identical to 403.
+
+  at tests/Feature/Http/Controllers/PostControllerTest.php:93
+     89▕             ['created_at' => now()->sub('1 days'), 'name' => 'コメント三郎', 'post_id' => $post->id,],
+     90▕         ]);
+     91▕ 
+     92▕         $this->get('posts/' . $post->id)
+  ➜  93▕             ->assertOk()
+     94▕             ->assertSee($post->title)
+     95▕             ->assertSee($post->user->name)
+     96▕             ->assertSeeInOrder(
+     97▕                 [
+
+
+  Tests:  1 failed
+  Time:   0.48s
+```
+
+`tests/Feature/Http/Controllers/PostControllerTest.php`を編集  
+
+```php:PostControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Http\Middleware\PostShowLimit;
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
+use Tests\TestCase;
+
+class PostControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+    // use WithoutMiddleware;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->hasComments(3)->create(['title' => 'ブログのタイトル1']);
+        $post2 = Post::factory()->hasComments(5)->create(['title' => 'ブログのタイトル2']);
+        Post::factory()->hasComments(1)->create();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2')
+            ->assertSee($post1->user->name)
+            ->assertSee($post2->user->name)
+            ->assertSee('(3件のコメント)')
+            ->assertSee('(5件のコメント)')
+            ->assertSeeInOrder([
+                '(5件のコメント)',
+                '(3件のコメント)',
+                '(1件のコメント)',
+            ]);
+    }
+
+    /**
+     * @test
+     */
+    function ブログの一覧で、非公開のブログは表示されない()
+    {
+        $post1 = Post::factory()->closed()->create([
+            'title' => 'これは非公開のブログです',
+        ]);
+
+        $post2 = Post::factory()->create([
+            'title' => 'これは公開済みのブログです',
+        ]); // 公開されているデータ
+
+        $this->get('/')
+            ->assertDontSee('これは非公開のブログです')
+            ->assertSee('これは公開済みのブログです');
+    }
+
+    /**
+     * @test
+     */
+    function ブログの詳細画面が表示でき、コメントが古い順に表示される()
+    {
+        $this->withoutMiddleware(PostShowLimit::class); // 編集
+
+        $post = Post::factory()->create();
+
+        [$comment1, $comment2, $comment3] = Comment::factory()->createMany([
+            ['created_at' => now()->sub('2 days'), 'name' => 'コメント太郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('3 days'), 'name' => 'コメント次郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('1 days'), 'name' => 'コメント三郎', 'post_id' => $post->id,],
+        ]);
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee($post->title)
+            ->assertSee($post->user->name)
+            ->assertSeeInOrder(
+                [
+                    'コメント次郎',
+                    'コメント太郎',
+                    'コメント三郎'
+                ]
+            );
+    }
+
+    /**
+     * @test
+     */
+    function ブログで非公開のものは、詳細画面は表示できない()
+    {
+        $post = Post::factory()->closed()->create(); // 非公開のテストデータ
+
+        $this->get('posts/' . $post->id)
+            ->assertForbidden();
+    }
+
+    /**
+     * @test
+     */
+    function クリスマスの日は、メリークリスマス！と表示される()
+    {
+        $post = Post::factory()->create();
+
+        Carbon::setTestNow('2020-12-24');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertDontSee('メリークリスマス！');
+
+        Carbon::setTestNow('2020-12-25');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee('メリークリスマス！');
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        // $post = Post::factory()->make(['user_id' => null]);
+        // dump($post);
+        // dump($post->toArray());
+
+        // dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+}
+```
+
+- `$ php artisan test --filter ブログの詳細画面が表示でき、コメントが古い順に表示される`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\PostControllerTest
+  ✓ ブログの詳細画面が表示でき、コメントが古い順に表示される
+
+  Tests:  1 passed
+  Time:   0.45s
+```
+
+- ipを調べる  
+
+`app/Http/Middleware/PostShowLimit.php`を編集  
+
+```php:PostShowLimit.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class PostShowLimit
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     */
+    public function handle(Request $request, Closure $next)
+    {
+        dd($request->ip()); // 追加 確認したら削除する
+
+        if (!in_array($request->ip(), ['192.168.255.255'], true)) {
+            abort(403, 'Your IP is not valid.');
+        }
+
+        return $next($request);
+    }
+}
+```
+
+`tests/Feature/Http/Controllers/PostControllerTest.php`を編集  
+
+```php:PostControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Http\Middleware\PostShowLimit;
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
+use Tests\TestCase;
+
+class PostControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+    // use WithoutMiddleware;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->hasComments(3)->create(['title' => 'ブログのタイトル1']);
+        $post2 = Post::factory()->hasComments(5)->create(['title' => 'ブログのタイトル2']);
+        Post::factory()->hasComments(1)->create();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2')
+            ->assertSee($post1->user->name)
+            ->assertSee($post2->user->name)
+            ->assertSee('(3件のコメント)')
+            ->assertSee('(5件のコメント)')
+            ->assertSeeInOrder([
+                '(5件のコメント)',
+                '(3件のコメント)',
+                '(1件のコメント)',
+            ]);
+    }
+
+    /**
+     * @test
+     */
+    function ブログの一覧で、非公開のブログは表示されない()
+    {
+        $post1 = Post::factory()->closed()->create([
+            'title' => 'これは非公開のブログです',
+        ]);
+
+        $post2 = Post::factory()->create([
+            'title' => 'これは公開済みのブログです',
+        ]); // 公開されているデータ
+
+        $this->get('/')
+            ->assertDontSee('これは非公開のブログです')
+            ->assertSee('これは公開済みのブログです');
+    }
+
+    /**
+     * @test
+     */
+    function ブログの詳細画面が表示でき、コメントが古い順に表示される()
+    {
+        // $this->withoutMiddleware(PostShowLimit::class); // コメントアウトしておく 確認後コメンアウトを解除
+
+        $post = Post::factory()->create();
+
+        [$comment1, $comment2, $comment3] = Comment::factory()->createMany([
+            ['created_at' => now()->sub('2 days'), 'name' => 'コメント太郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('3 days'), 'name' => 'コメント次郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('1 days'), 'name' => 'コメント三郎', 'post_id' => $post->id,],
+        ]);
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee($post->title)
+            ->assertSee($post->user->name)
+            ->assertSeeInOrder(
+                [
+                    'コメント次郎',
+                    'コメント太郎',
+                    'コメント三郎'
+                ]
+            );
+    }
+
+    /**
+     * @test
+     */
+    function ブログで非公開のものは、詳細画面は表示できない()
+    {
+        $post = Post::factory()->closed()->create(); // 非公開のテストデータ
+
+        $this->get('posts/' . $post->id)
+            ->assertForbidden();
+    }
+
+    /**
+     * @test
+     */
+    function クリスマスの日は、メリークリスマス！と表示される()
+    {
+        $post = Post::factory()->create();
+
+        Carbon::setTestNow('2020-12-24');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertDontSee('メリークリスマス！');
+
+        Carbon::setTestNow('2020-12-25');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee('メリークリスマス！');
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        // $post = Post::factory()->make(['user_id' => null]);
+        // dump($post);
+        // dump($post->toArray());
+
+        // dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+}
+```
+
+- `$ php artisan test --filter ブログの詳細画面が表示でき、コメントが古い順に表示される`を実行  
+
+```:terminal
+"127.0.0.1" // app/Http/Middleware/PostShowLimit.php:19
+```
+
+`tests/Feature/Http/Controllers/PostControllerTest.php`を編集  
+
+```php:PostControllerTest.php
+<?php
+
+namespace Tests\Feature\Http\Controllers;
+
+use App\Http\Middleware\PostShowLimit;
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
+use Tests\TestCase;
+
+class PostControllerTest extends TestCase
+{
+    // use RefreshDatabase;
+    // use WithoutMiddleware;
+
+    /**
+     * @test
+     */
+    function TOPページで、ブログ一覧が表示される()
+    {
+        // Ver.8.51未満の場合で、500エラーが出た場合のエラー確認方法
+        //
+        // $this->withoutExceptionHandling();
+        // ブラウザで確認できる場合は、ブラウザで確認する方法もある
+        // エラーログを確認する
+
+        // $this->withoutExceptionHandling();
+
+        // $post1 = Post::factory()->create();
+        // $post2 = Post::factory()->create();
+
+        // $this->get('/')
+        //     ->assertOk()
+        //     ->assertSee($post1->title)
+        //     ->assertSee($post2->title);
+
+        $post1 = Post::factory()->hasComments(3)->create(['title' => 'ブログのタイトル1']);
+        $post2 = Post::factory()->hasComments(5)->create(['title' => 'ブログのタイトル2']);
+        Post::factory()->hasComments(1)->create();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('ブログのタイトル1')
+            ->assertSee('ブログのタイトル2')
+            ->assertSee($post1->user->name)
+            ->assertSee($post2->user->name)
+            ->assertSee('(3件のコメント)')
+            ->assertSee('(5件のコメント)')
+            ->assertSeeInOrder([
+                '(5件のコメント)',
+                '(3件のコメント)',
+                '(1件のコメント)',
+            ]);
+    }
+
+    /**
+     * @test
+     */
+    function ブログの一覧で、非公開のブログは表示されない()
+    {
+        $post1 = Post::factory()->closed()->create([
+            'title' => 'これは非公開のブログです',
+        ]);
+
+        $post2 = Post::factory()->create([
+            'title' => 'これは公開済みのブログです',
+        ]); // 公開されているデータ
+
+        $this->get('/')
+            ->assertDontSee('これは非公開のブログです')
+            ->assertSee('これは公開済みのブログです');
+    }
+
+    /**
+     * @test
+     */
+    function ブログの詳細画面が表示でき、コメントが古い順に表示される()
+    {
+        // $this->withoutMiddleware(PostShowLimit::class); 再度コメントアウト
+
+        $post = Post::factory()->create();
+
+        [$comment1, $comment2, $comment3] = Comment::factory()->createMany([
+            ['created_at' => now()->sub('2 days'), 'name' => 'コメント太郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('3 days'), 'name' => 'コメント次郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('1 days'), 'name' => 'コメント三郎', 'post_id' => $post->id,],
+        ]);
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee($post->title)
+            ->assertSee($post->user->name)
+            ->assertSeeInOrder(
+                [
+                    'コメント次郎',
+                    'コメント太郎',
+                    'コメント三郎'
+                ]
+            );
+    }
+
+    /**
+     * @test
+     */
+    function ブログで非公開のものは、詳細画面は表示できない()
+    {
+        $post = Post::factory()->closed()->create(); // 非公開のテストデータ
+
+        $this->get('posts/' . $post->id)
+            ->assertForbidden();
+    }
+
+    /**
+     * @test
+     */
+    function クリスマスの日は、メリークリスマス！と表示される()
+    {
+        $post = Post::factory()->create();
+
+        Carbon::setTestNow('2020-12-24');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertDontSee('メリークリスマス！');
+
+        Carbon::setTestNow('2020-12-25');
+
+        $this->get('posts/' . $post->id)
+            ->assertOk()
+            ->assertSee('メリークリスマス！');
+    }
+
+    /**
+     * @test
+     */
+    function factoryの観察()
+    {
+        // $post = Post::factory()->make(['user_id' => null]);
+        // dump($post);
+        // dump($post->toArray());
+
+        // dump(User::get()->toArray());
+
+        $this->assertTrue(true);
+    }
+}
+```
+
+`app/Http/Middleware/PostShowLimit.php`を編集  
+
+```php:PostShowLimit.php
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class PostShowLimit
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     */
+    public function handle(Request $request, Closure $next)
+    {
+        // 追加
+        if ($this->runningUnitTests()) {
+            return $next($request);
+        }
+        // ここまで testの時は無効になるようにする
+
+        if (!in_array($request->ip(), ['192.168.255.255'], true)) {
+            abort(403, 'Your IP is not valid.');
+        }
+
+        return $next($request);
+    }
+
+    // 追加
+    protected function runningUnitTests()
+    {
+        return app()->runningInConsole() && app()->runningUnitTests();
+    }
+    // ここまで
+}
+```
+
+- `$ php artisan test --filter ブログの詳細画面が表示でき、コメントが古い順に表示される`を実行  
+
+```:terminal
+   PASS  Tests\Feature\Http\Controllers\PostControllerTest
+  ✓ ブログの詳細画面が表示でき、コメントが古い順に表示される
+
+  Tests:  1 passed
+  Time:   0.64s
+```
+
+`routes/web.php`を編集  
+
+```php:web.php
+<?php
+
+use App\Http\Controllers\Mypage\PostManageController;
+use App\Http\Controllers\Mypage\UserLoginController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\SignupController;
+use App\Http\Middleware\PostShowLimit;
+use Illuminate\Support\Facades\Route;
+
+Route::get('', [PostController::class, 'index']);
+Route::get('posts/{post}', [PostController::class, 'show'])
+    ->name('posts.show')
+    ->whereNumber('post'); // 'post'は数値のみに限定という意味
+// ->middleware(PostShowLimit::class); // コメントアウト
+
+Route::get('signup', [SignupController::class, 'index']);
+Route::post('signup', [SignupController::class, 'store']);
+
+Route::get('mypage/login', [UserLoginController::class, 'index'])->name('login');
+Route::post('mypage/login', [UserLoginController::class, 'login']);
+
+Route::middleware('auth')->group(function () {
+    Route::get('mypage/posts', [PostManageController::class, 'index'])->name('mypage.posts');
+    Route::post('mypage/logout', [UserLoginController::class, 'logout'])->name('logout');
+    Route::get('mypage/posts/create', [PostManageController::class, 'create']);
+    Route::post('mypage/posts/create', [PostManageController::class, 'store']);
+    Route::get('mypage/posts/edit/{post}', [PostManageController::class, 'edit'])->name('mypage.posts.edit');
+    Route::post('mypage/posts/edit/{post}', [PostManageController::class, 'update']);
+    Route::delete('mypage/posts/delete/{post}', [PostManageController::class, 'destroy'])->name('mypage.posts.delete');
+});
+```
