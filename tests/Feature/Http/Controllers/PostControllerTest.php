@@ -2,17 +2,20 @@
 
 namespace Tests\Feature\Http\Controllers;
 
+use App\Http\Middleware\PostShowLimit;
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Tests\TestCase;
 
 class PostControllerTest extends TestCase
 {
     // use RefreshDatabase;
+    // use WithoutMiddleware;
 
     /**
      * @test
@@ -77,12 +80,14 @@ class PostControllerTest extends TestCase
      */
     function ブログの詳細画面が表示でき、コメントが古い順に表示される()
     {
+        // $this->withoutMiddleware(PostShowLimit::class);
+
         $post = Post::factory()->create();
 
         [$comment1, $comment2, $comment3] = Comment::factory()->createMany([
             ['created_at' => now()->sub('2 days'), 'name' => 'コメント太郎', 'post_id' => $post->id,],
-            ['created_at' => now()->sub('3 days'),'name' => 'コメント次郎', 'post_id' => $post->id,],
-            ['created_at' => now()->sub('1 days'),'name' => 'コメント三郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('3 days'), 'name' => 'コメント次郎', 'post_id' => $post->id,],
+            ['created_at' => now()->sub('1 days'), 'name' => 'コメント三郎', 'post_id' => $post->id,],
         ]);
 
         $this->get('posts/' . $post->id)
