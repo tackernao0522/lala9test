@@ -2,8 +2,8 @@
 
 namespace App\Actions;
 
-// use Illuminate\Support\Str;
-use Str;
+use Illuminate\Support\Str;
+// use Str;
 
 class StrRandom
 {
