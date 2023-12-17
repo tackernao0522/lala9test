@@ -1011,3 +1011,274 @@ class StrRandom
     }
 }
 ```
+
+## 65. Unitテスト
+
+- `$ php artisan make:test Actions/StrRandomTest --unit`を実行  
+
+`tests/unit/Actions/StrRamdomTest.php`を編集  
+
+```php:StrRandomTest.php
+<?php
+
+namespace Tests\Unit\Actions;
+
+use App\Actions\StrRandom; // 追加
+use PHPUnit\Framework\TestCase;
+
+class StrRandomTest extends TestCase
+{
+    // 追加
+    /**
+     * @test
+     */
+    function StrRandom_正しい文字数を返す()
+    {
+        $random = new StrRandom();
+
+        $ret1 = $random->get(8);
+        $ret2 = $random->get(10);
+
+        $this->assertTrue(strlen($ret1) === 8);
+        $this->assertTrue(strlen($ret2) === 10);
+    }
+
+    /**
+     * @test
+     */
+    function strRandom_ランダムの文字列を返す()
+    {
+        $random = new StrRandom();
+
+        $ret1 = $random->get(8);
+        $ret2 = $random->get(8);
+
+        $this->assertFalse($ret1 === $ret2);
+    }
+    // ここまで
+}
+```
+
+`app/Actions/StrRandom.php`を編集  
+
+```php:StrRandom.php
+<?php
+
+namespace App\Actions;
+
+use Illuminate\Support\Str; // こっちにする
+// use Str;
+
+class StrRandom
+{
+    public function get($length)
+    {
+        // return \Str::random($length);
+        return Str::random($length);
+    }
+}
+```
+
+- `$ php artisan test --filter StrRandomTest`を実行  
+
+```:terminal
+   PASS  Tests\Unit\Actions\StrRandomTest
+  ✓ str random 正しい文字数を返す
+  ✓ str random ランダムの文字列を返す
+
+  Tests:  2 passed
+  Time:   0.02s
+```
+
+※ エイリアスを使用した場合(試したら戻す)
+
+`app/Actions/StrRandom.php`を編集  
+
+```php:StrRandom.php
+<?php
+
+namespace App\Actions;
+
+// use Illuminate\Support\Str;
+// use Str;
+
+class StrRandom
+{
+    public function get($length)
+    {
+        return \Str::random($length);
+        // return Str::random($length);
+    }
+}
+```
+
+- `$ php artisan test --filter StrRandomTest`を実行  
+
+```:terminal
+   FAIL  Tests\Unit\Actions\StrRandomTest
+  ⨯ str random 正しい文字数を返す
+  ⨯ str random ランダムの文字列を返す
+
+  ---
+
+  • Tests\Unit\Actions\StrRandomTest > str random 正しい文字数を返す
+   PHPUnit\Framework\ExceptionWrapper 
+
+  Class "Str" not found
+
+  at app/Actions/StrRandom.php:12
+      8▕ class StrRandom
+      9▕ {
+     10▕     public function get($length)
+     11▕     {
+  ➜  12▕         return \Str::random($length);
+     13▕         // return Str::random($length);
+     14▕     }
+     15▕ }
+     16▕ 
+
+  • Tests\Unit\Actions\StrRandomTest > str random ランダムの文字列を返す
+   PHPUnit\Framework\ExceptionWrapper 
+
+  Class "Str" not found
+
+  at app/Actions/StrRandom.php:12
+      8▕ class StrRandom
+      9▕ {
+     10▕     public function get($length)
+     11▕     {
+  ➜  12▕         return \Str::random($length);
+     13▕         // return Str::random($length);
+     14▕     }
+     15▕ }
+     16▕ 
+
+
+  Tests:  2 failed
+  Time:   0.03s
+```
+
+※ エイリアスを使用したい場合  
+
+`tests/unit/Actions/StrRandom.php`を編集  
+
+```php:StrRandom.php
+<?php
+
+namespace Tests\Unit\Actions;
+
+use App\Actions\StrRandom;
+use PHPUnit\Framework\TestCase;
+
+class StrRandomTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function StrRandom_正しい文字数を返す()
+    {
+        class_alias(\Illuminate\Support\Str::class, \Str::class); // 追加
+
+        $random = new StrRandom();
+
+        $ret1 = $random->get(8);
+        $ret2 = $random->get(10);
+
+        $this->assertTrue(strlen($ret1) === 8);
+        $this->assertTrue(strlen($ret2) === 10);
+    }
+
+    /**
+     * @test
+     */
+    function strRandom_ランダムの文字列を返す()
+    {
+        $random = new StrRandom();
+
+        $ret1 = $random->get(8);
+        $ret2 = $random->get(8);
+
+        $this->assertFalse($ret1 === $ret2);
+    }
+}
+```
+
+- `$ php artisan test --filter StrRandomTest`を実行  
+
+```:terminal
+   PASS  Tests\Unit\Actions\StrRandomTest
+  ✓ str random 正しい文字数を返す
+  ✓ str random ランダムの文字列を返す
+
+  Tests:  2 passed
+```
+
+- __全て元に戻しておく(エイリアスを使用しない方法に)__  
+
+スピードの確認をしてみる  
+
+- `$ php artisan test --filter StrRandomTest`を実行  
+
+```:terminal
+  PASS  Tests\Unit\Actions\StrRandomTest
+  ✓ str random 正しい文字数を返す
+  ✓ str random ランダムの文字列を返す
+
+  Tests:  2 passed
+  Time:   0.02s
+```
+
+Feature側のをインポートして使用してみる  
+
+`tests/unit/Actions/StrRandomTest.php`を編集  
+
+```php:StrRandomTest.php
+<?php
+
+namespace Tests\Unit\Actions;
+
+use App\Actions\StrRandom;
+// use PHPUnit\Framework\TestCase; // コメントアウト
+use Tests\TestCase; // 追加
+
+class StrRandomTest extends TestCase
+{
+    /**
+     * @test
+     */
+    function StrRandom_正しい文字数を返す()
+    {
+        $random = new StrRandom();
+
+        $ret1 = $random->get(8);
+        $ret2 = $random->get(10);
+
+        $this->assertTrue(strlen($ret1) === 8);
+        $this->assertTrue(strlen($ret2) === 10);
+    }
+
+    /**
+     * @test
+     */
+    function strRandom_ランダムの文字列を返す()
+    {
+        $random = new StrRandom();
+
+        $ret1 = $random->get(8);
+        $ret2 = $random->get(8);
+
+        $this->assertFalse($ret1 === $ret2);
+    }
+}
+```
+
+- `$ php artisan test --filter StrRandomTest`を実行  
+
+```:terminal
+   PASS  Tests\Unit\Actions\StrRandomTest
+  ✓ str random 正しい文字数を返す
+  ✓ str random ランダムの文字列を返す
+
+  Tests:  2 passed
+  Time:   0.30s
+```
