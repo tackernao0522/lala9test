@@ -3,8 +3,8 @@
 namespace Tests\Unit\Actions;
 
 use App\Actions\StrRandom;
-// use PHPUnit\Framework\TestCase;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
+// use Tests\TestCase;
 
 class StrRandomTest extends TestCase
 {
