@@ -988,3 +988,26 @@ class PostControllerTest extends TestCase
   Tests:  1 passed
   Time:   0.35s
 ```
+
+## 64. aliaseについて
+
+`app/Actions/StrRandom.php`を編集  
+
+```php:StrRandom.php
+<?php
+
+namespace App\Actions;
+
+// use Illuminate\Support\Str; // 追加
+// or
+use Str;
+
+class StrRandom
+{
+    public function get($length)
+    {
+        // return \Str::random($length);
+        return Str::random($length); // エイリアスを使用しない場合
+    }
+}
+```
